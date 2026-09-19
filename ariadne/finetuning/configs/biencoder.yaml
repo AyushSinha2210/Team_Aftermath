@@ -1,0 +1,31 @@
+# ==============================================================================
+# Bi-Encoder Specific Training Configuration (Person A)
+# Optimized for CPU inference efficiency and contrastive retrieval accuracy
+# ==============================================================================
+
+model:
+  base_model: "sentence-transformers/all-MiniLM-L6-v2"
+  max_seq_length: 512
+  pooling: "mean"
+  normalize_embeddings: true
+
+training:
+  seed: 42
+  num_epochs: 3
+  batch_size: 16
+  learning_rate: 2.0e-5
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  evaluation_steps: 100
+  early_stopping_patience: 2
+  metric_for_best_model: "ndcg@10"
+  greater_is_better: true
+
+loss:
+  name: "MultipleNegativesRankingLoss"
+  scale: 20.0
+
+mining:
+  bm25_negatives_count: 3
+  round2_dense_negatives_count: 3
+  margin: 0.1

@@ -1,0 +1,15 @@
+# Root .gitignore
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+*.pdf
+ariadne/data/raw/*
+!ariadne/data/raw/.gitkeep
+ariadne/finetuning/checkpoints/*
+!ariadne/finetuning/checkpoints/.gitkeep
+ariadne/eval/results/*
+!ariadne/eval/results/.gitkeep

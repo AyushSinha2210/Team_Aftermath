@@ -1,0 +1,32 @@
+# Ariadne .gitignore
+# Exclude raw dataset downloads and large weights
+data/raw/*
+!data/raw/.gitkeep
+finetuning/checkpoints/*
+!finetuning/checkpoints/.gitkeep
+
+# Evaluation outputs and logs
+eval/results/*
+!eval/results/.gitkeep
+
+# Python cache and byte-compiled artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+*.swp
+*~
