@@ -1,28 +1,34 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Script: data/download.sh
-# Purpose: Pulls the CoIR apps dataset from HuggingFace
-# Note: Person A uses train and validation splits exclusively.
-# The test split is evaluated only at final submission in Phase 6.
+# Purpose: Pulls CoIR-Retrieval/apps (train/valid/test) into data/raw/
+# Idempotent: skips if already present.
 # ==============================================================================
 
 set -euo pipefail
 
-DEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/raw" && pwd)"
-echo "Downloading CoIR apps dataset to ${DEST_DIR}..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-python -c "
-import os
-from datasets import load_dataset
+# Detect python executable (favor local virtual environment)
+if [[ -f "${REPO_ROOT}/../.venv/Scripts/python.exe" ]]; then
+    PYTHON_BIN="${REPO_ROOT}/../.venv/Scripts/python.exe"
+elif [[ -f "${REPO_ROOT}/.venv/Scripts/python.exe" ]]; then
+    PYTHON_BIN="${REPO_ROOT}/.venv/Scripts/python.exe"
+elif [[ -f "${REPO_ROOT}/../.venv/bin/python" ]]; then
+    PYTHON_BIN="${REPO_ROOT}/../.venv/bin/python"
+elif [[ -f "${REPO_ROOT}/.venv/bin/python" ]]; then
+    PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"
+else
+    PYTHON_BIN="python"
+fi
 
-dest = '${DEST_DIR}'
-os.makedirs(dest, exist_ok=True)
-print('Fetching CoIR-Retrieval/apps (train and validation splits)...')
-try:
-    ds = load_dataset('CoIR-Retrieval/apps', split=['train', 'validation'])
-    ds[0].save_to_disk(os.path.join(dest, 'train'))
-    ds[1].save_to_disk(os.path.join(dest, 'validation'))
-    print('Download complete: train and validation splits stored in', dest)
-except Exception as e:
-    print('Download notice:', e)
-"
+PY_TARGET="${SCRIPT_DIR}/download.py"
+if command -v wslpath >/dev/null 2>&1; then
+    if [[ "${PYTHON_BIN}" == *".exe"* ]]; then
+        PY_TARGET="$(wslpath -w "${PY_TARGET}")"
+    fi
+fi
+
+echo "[ariadne] Running dataset download and preparation using ${PYTHON_BIN}..."
+"${PYTHON_BIN}" "${PY_TARGET}"

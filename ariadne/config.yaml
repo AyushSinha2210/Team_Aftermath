@@ -26,9 +26,9 @@ data:
   raw_dir: "data/raw"
   processed_dir: "data/processed"
   train_split: "train"
-  valid_split: "validation"
-  # Hard rule: test split is strictly forbidden for Person A during training/tuning
+  valid_split: "valid"
   test_split: "test"
+  validation_ratio: 0.1
 
 # ------------------------------------------------------------------------------
 # PERSON A: Fine-tuning Configuration
