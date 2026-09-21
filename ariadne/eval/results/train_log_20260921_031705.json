@@ -1,0 +1,51 @@
+{
+  "timestamp": "20260921_031705",
+  "experiment_tag": "phase3",
+  "base_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "final_step": 60,
+  "initial_ndcg@10": 0.6089507412290609,
+  "initial_mrr@10": 0.5790174603174603,
+  "best_ndcg@10": 0.7187168674680022,
+  "improvement_over_baseline": 0.10976612623894133,
+  "training_logs": [
+    {
+      "step": 20,
+      "loss": 0.30297738313674927,
+      "learning_rate": 2.222222222222222e-05,
+      "metrics": {
+        "ndcg@10": 0.6888942537471388,
+        "mrr@10": 0.6580896825396825,
+        "recall@1": 0.602,
+        "recall@5": 0.72,
+        "recall@10": 0.788
+      },
+      "timestamp": "2026-09-20T16:23:28.783593+00:00"
+    },
+    {
+      "step": 40,
+      "loss": 0.20744608342647552,
+      "learning_rate": 1.111111111111111e-05,
+      "metrics": {
+        "ndcg@10": 0.7078676612050337,
+        "mrr@10": 0.6763515873015873,
+        "recall@1": 0.616,
+        "recall@5": 0.748,
+        "recall@10": 0.808
+      },
+      "timestamp": "2026-09-20T17:10:46.558760+00:00"
+    },
+    {
+      "step": 60,
+      "loss": 0.5973060727119446,
+      "learning_rate": 0.0,
+      "metrics": {
+        "ndcg@10": 0.7187168674680022,
+        "mrr@10": 0.6863809523809524,
+        "recall@1": 0.626,
+        "recall@5": 0.76,
+        "recall@10": 0.822
+      },
+      "timestamp": "2026-09-21T03:17:05.314955+00:00"
+    }
+  ]
+}

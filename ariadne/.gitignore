@@ -2,12 +2,15 @@
 # Exclude raw dataset downloads and large weights
 data/raw/*
 !data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
 finetuning/checkpoints/*
 !finetuning/checkpoints/.gitkeep
 
 # Evaluation outputs and logs
 eval/results/*
 !eval/results/.gitkeep
+!eval/results/*.json
 
 # Python cache and byte-compiled artifacts
 __pycache__/
