@@ -1,0 +1,78 @@
+{
+  "title": "Ariadne Bi-Encoder Fine-Tuning: Round 2 vs Round 1 Comparison",
+  "evaluation_split": "valid (data/raw/valid, 500 examples)",
+  "models": {
+    "baseline": {
+      "name": "Phase 2 Baseline (all-MiniLM-L6-v2)",
+      "metrics": {
+        "ndcg@10": 0.609,
+        "mrr@10": 0.579,
+        "recall@1": 0.536,
+        "recall@5": 0.648,
+        "recall@10": 0.694
+      }
+    },
+    "phase3": {
+      "name": "Phase 3 In-Batch (checkpoint-phase3-60)",
+      "metrics": {
+        "ndcg@10": 0.7187,
+        "mrr@10": 0.6864,
+        "recall@1": 0.626,
+        "recall@5": 0.76,
+        "recall@10": 0.822
+      }
+    },
+    "round1": {
+      "name": "Phase 4 Round 1 BM25 (checkpoint-round1_bm25-40)",
+      "metrics": {
+        "ndcg@10": 0.7226,
+        "mrr@10": 0.6926,
+        "recall@1": 0.638,
+        "recall@5": 0.772,
+        "recall@10": 0.818
+      }
+    },
+    "round2": {
+      "name": "Phase 6 Round 2 Dense (checkpoint-round2_dense-30)",
+      "metrics": {
+        "ndcg@10": 0.7737,
+        "mrr@10": 0.7427,
+        "recall@1": 0.69,
+        "recall@5": 0.81,
+        "recall@10": 0.874
+      }
+    }
+  },
+  "deltas": {
+    "ndcg@10": {
+      "delta_vs_round1": 0.0511,
+      "pct_gain_vs_round1": 7.07,
+      "delta_vs_baseline": 0.1647,
+      "pct_gain_vs_baseline": 27.04
+    },
+    "mrr@10": {
+      "delta_vs_round1": 0.0501,
+      "pct_gain_vs_round1": 7.23,
+      "delta_vs_baseline": 0.1637,
+      "pct_gain_vs_baseline": 28.27
+    },
+    "recall@1": {
+      "delta_vs_round1": 0.052,
+      "pct_gain_vs_round1": 8.15,
+      "delta_vs_baseline": 0.154,
+      "pct_gain_vs_baseline": 28.73
+    },
+    "recall@5": {
+      "delta_vs_round1": 0.038,
+      "pct_gain_vs_round1": 4.92,
+      "delta_vs_baseline": 0.162,
+      "pct_gain_vs_baseline": 25.0
+    },
+    "recall@10": {
+      "delta_vs_round1": 0.056,
+      "pct_gain_vs_round1": 6.85,
+      "delta_vs_baseline": 0.18,
+      "pct_gain_vs_baseline": 25.94
+    }
+  }
+}
