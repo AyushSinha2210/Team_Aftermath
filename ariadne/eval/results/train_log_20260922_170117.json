@@ -1,0 +1,38 @@
+{
+  "timestamp": "20260922_170117",
+  "experiment_tag": "round1_bm25",
+  "base_model": "ariadne/finetuning/checkpoints/checkpoint-phase3-60",
+  "final_step": 40,
+  "initial_ndcg@10": 0.7187168674680022,
+  "initial_mrr@10": 0.6863809523809524,
+  "best_ndcg@10": 0.7225638765585715,
+  "improvement_over_baseline": 0.003847009090569231,
+  "training_logs": [
+    {
+      "step": 20,
+      "loss": 0.14583908021450043,
+      "learning_rate": 1.1111111111111113e-05,
+      "metrics": {
+        "ndcg@10": 0.7214357743423432,
+        "mrr@10": 0.6910063492063492,
+        "recall@1": 0.636,
+        "recall@5": 0.774,
+        "recall@10": 0.818
+      },
+      "timestamp": "2026-09-22T16:43:38.164702+00:00"
+    },
+    {
+      "step": 40,
+      "loss": 0.33108213543891907,
+      "learning_rate": 0.0,
+      "metrics": {
+        "ndcg@10": 0.7225638765585715,
+        "mrr@10": 0.6925698412698412,
+        "recall@1": 0.638,
+        "recall@5": 0.772,
+        "recall@10": 0.818
+      },
+      "timestamp": "2026-09-22T17:01:17.558242+00:00"
+    }
+  ]
+}

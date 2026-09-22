@@ -1,0 +1,14 @@
+{
+  "timestamp": "20260922_170342",
+  "model": "ariadne/finetuning/checkpoints/checkpoint-round1_bm25-40",
+  "split": "valid",
+  "num_queries": 500,
+  "num_candidates": 500,
+  "metrics": {
+    "ndcg@10": 0.7225638765585715,
+    "mrr@10": 0.6925698412698412,
+    "recall@1": 0.638,
+    "recall@5": 0.772,
+    "recall@10": 0.818
+  }
+}
