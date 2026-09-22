@@ -367,11 +367,153 @@ def mine_bm25_hard_negatives(
     return mined_triplets
 
 
+def mine_dense_hard_negatives(
+    model_name_or_path: str,
+    config: Optional[Dict[str, Any]] = None,
+    output_path: Optional[Path] = None,
+    num_negatives: int = 1,
+) -> List[Dict[str, Any]]:
+    """Mines actual dense false positives from a fine-tuned checkpoint over the valid split.
+
+    # =========================================================================
+    # EXCEPTION TO TRAIN-ONLY RULE:
+    # Phase 6 explicit instruction permits reading 'valid' to harvest actual
+    # model false positives as hard negatives for round-2 iterative retraining.
+    # The 'test' split remains STRICTLY PROHIBITED under all circumstances!
+    # =========================================================================
+
+    Args:
+        model_name_or_path: Path to checkpoint to harvest false positives from.
+        config: Optional configuration dictionary.
+        output_path: Optional output path for mined JSON triplets.
+        num_negatives: Number of top dense false positives to mine per query.
+
+    Returns:
+        List of mined dense triplet dictionaries.
+    """
+    if config is None:
+        config = load_config()
+
+    logger = setup_logger(config.get("global", {}).get("log_level", "INFO"))
+
+    data_cfg = config.get("data", {})
+    raw_dir = _repo_root / data_cfg.get("raw_dir", "data/raw")
+    valid_split_name = data_cfg.get("valid_split", "valid")
+    valid_path = raw_dir / valid_split_name
+
+    # Safety assertion: verify never touching test
+    assert "test" not in str(valid_path).lower(), "SAFETY VIOLATION: test split accessed!"
+    assert valid_split_name.lower() == "valid", "SAFETY VIOLATION: split must be valid!"
+
+    logger.info("=" * 70)
+    logger.info("Starting Phase 6 Round 2 Dense Hard-Negative Mining")
+    logger.info("[EXCEPTION TO TRAIN-ONLY RULE]: Reading from '%s' split to harvest model false positives.", valid_path)
+    logger.info("Source checkpoint: %s", model_name_or_path)
+
+    valid_dataset: Dataset = load_from_disk(str(valid_path))
+    num_queries = len(valid_dataset)
+    logger.info("Loaded %d validation examples.", num_queries)
+
+    query_ids: List[str] = valid_dataset["query_id"]
+    corpus_ids: List[str] = valid_dataset["corpus_id"]
+    queries: List[str] = valid_dataset["query"]
+    codes: List[str] = valid_dataset["code"]
+
+    # Candidate pool
+    cid_to_code: Dict[str, str] = {}
+    for cid, code in zip(corpus_ids, codes):
+        if cid not in cid_to_code:
+            cid_to_code[cid] = code
+    unique_corpus_ids: List[str] = list(cid_to_code.keys())
+    unique_codes: List[str] = [cid_to_code[cid] for cid in unique_corpus_ids]
+
+    # Import encode from embedder
+    from ariadne.finetuning.embedder import encode
+
+    eval_batch_size = int(config.get("finetuning", {}).get("eval_batch_size", 32))
+
+    logger.info("Encoding %d queries with %s...", len(queries), model_name_or_path)
+    query_embeddings = encode(queries, batch_size=eval_batch_size, model_name_or_path=model_name_or_path)
+
+    logger.info("Encoding %d candidate code documents...", len(unique_codes))
+    corpus_embeddings = encode(unique_codes, batch_size=eval_batch_size, model_name_or_path=model_name_or_path)
+
+    logger.info("Computing dense similarity matrix...")
+    sim_matrix = np.matmul(query_embeddings, corpus_embeddings.T)
+
+    mined_dense_triplets: List[Dict[str, Any]] = []
+
+    for q_idx in range(num_queries):
+        qid = query_ids[q_idx]
+        target_cid = corpus_ids[q_idx]
+        q_text = queries[q_idx]
+        pos_code = codes[q_idx]
+
+        row_sims = sim_matrix[q_idx]
+        sorted_indices = np.argsort(-row_sims)
+
+        dense_negatives: List[Dict[str, Any]] = []
+        for cand_idx in sorted_indices:
+            cand_cid = unique_corpus_ids[cand_idx]
+            cand_code = unique_codes[cand_idx]
+            cand_sim = float(row_sims[cand_idx])
+
+            # Exclusion: cannot be positive target
+            if cand_cid == target_cid or cand_code.strip() == pos_code.strip():
+                continue
+
+            dense_negatives.append(
+                {
+                    "corpus_id": cand_cid,
+                    "code": cand_code,
+                    "similarity": round(cand_sim, 4),
+                }
+            )
+
+            if len(dense_negatives) >= num_negatives:
+                break
+
+        top_false_positive = dense_negatives[0]
+        mined_dense_triplets.append(
+            {
+                "query_id": qid,
+                "corpus_id": target_cid,
+                "query": q_text,
+                "positive_code": pos_code,
+                "hard_negative_corpus_id": top_false_positive["corpus_id"],
+                "hard_negative_code": top_false_positive["code"],
+                "hard_negative_similarity": top_false_positive["similarity"],
+            }
+        )
+
+    logger.info("Round 2 Dense Mining complete! Harvested %d actual false positive triplets.", len(mined_dense_triplets))
+    mean_sim = float(np.mean([t["hard_negative_similarity"] for t in mined_dense_triplets]))
+    logger.info("Mean false positive cosine similarity: %.4f", mean_sim)
+
+    if output_path is None:
+        processed_dir = _repo_root / data_cfg.get("processed_dir", "data/processed")
+        processed_dir.mkdir(parents=True, exist_ok=True)
+        output_path = processed_dir / "round2_dense_negatives.json"
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(mined_dense_triplets, f, indent=2)
+
+    logger.info("Saved round 2 dense triplets to: %s", output_path)
+    return mined_dense_triplets
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Mine BM25 hard negatives on the apps train split.")
+    parser = argparse.ArgumentParser(description="Mine hard negatives (BM25 or dense) on apps dataset.")
     parser.add_argument("--num-negatives", type=int, default=1, help="Number of hard negatives per query.")
     parser.add_argument("--output", type=str, default=None, help="Custom output path for mined triplets JSON.")
+    parser.add_argument("--dense", action="store_true", default=False, help="Mine dense false positives from checkpoint.")
+    parser.add_argument("--checkpoint", type=str, default=None, help="Checkpoint path for dense mining.")
     args = parser.parse_args()
 
     custom_output = Path(args.output) if args.output else None
-    mine_bm25_hard_negatives(num_negatives=args.num_negatives, output_path=custom_output)
+    if args.dense:
+        ckpt = args.checkpoint or "ariadne/finetuning/checkpoints/checkpoint-round1_bm25-40"
+        mine_dense_hard_negatives(model_name_or_path=ckpt, num_negatives=args.num_negatives, output_path=custom_output)
+    else:
+        mine_bm25_hard_negatives(num_negatives=args.num_negatives, output_path=custom_output)
