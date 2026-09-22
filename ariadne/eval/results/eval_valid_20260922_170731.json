@@ -1,0 +1,14 @@
+{
+  "timestamp": "20260922_170731",
+  "model": "ariadne/finetuning/checkpoints/checkpoint-phase3-60",
+  "split": "valid",
+  "num_queries": 500,
+  "num_candidates": 500,
+  "metrics": {
+    "ndcg@10": 0.7187168674680022,
+    "mrr@10": 0.6863809523809524,
+    "recall@1": 0.626,
+    "recall@5": 0.76,
+    "recall@10": 0.822
+  }
+}

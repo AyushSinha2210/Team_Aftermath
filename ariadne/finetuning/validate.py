@@ -2,6 +2,8 @@
 
 Strictly evaluates against the CoIR apps validation split (data/raw/valid) only.
 Computes NDCG@10, MRR@10, and Recall@k, and logs timestamped results to eval/results/.
+
+SAFETY RAIL: Enforces strict runtime assertions preventing any reference to the 'test' split.
 """
 
 from __future__ import annotations
@@ -52,6 +54,48 @@ def setup_logger(log_level: str = "INFO") -> logging.Logger:
     return logger
 
 
+def verify_safety_rails(dataset_path: Path, split_name: str) -> None:
+    """Explicit runtime safety rail asserting that no test split path is ever referenced.
+
+    This is an active architectural safety constraint to guarantee zero data leakage
+    before the final official benchmark evaluation in Phase 6.
+
+    Args:
+        dataset_path: Path to dataset split to be evaluated.
+        split_name: Name of split declared in configuration or arguments.
+
+    Raises:
+        AssertionError: If any reference to 'test' is detected.
+    """
+    norm_path = dataset_path.as_posix().lower()
+    norm_split = split_name.strip().lower()
+
+    # Safety Rail 1: Forbid 'test' split name
+    if norm_split == "test":
+        raise AssertionError(
+            f"CRITICAL SAFETY RAIL VIOLATION: Validation harness was called with split='test'. "
+            f"Evaluating against the test split is strictly prohibited until Phase 6!"
+        )
+
+    # Safety Rail 2: Forbid 'test' path pattern
+    if "/test" in norm_path or norm_path.endswith("test") or "\\test" in str(dataset_path).lower():
+        raise AssertionError(
+            f"CRITICAL SAFETY RAIL VIOLATION: Dataset path references 'test' split: {dataset_path}. "
+            f"Evaluating against the test split is strictly prohibited until Phase 6!"
+        )
+
+    # Safety Rail 3: Positively enforce that target is valid split
+    if norm_split != "valid":
+        raise AssertionError(
+            f"CRITICAL SAFETY RAIL VIOLATION: Expected target split 'valid', but got '{split_name}'."
+        )
+
+    if "valid" not in norm_path:
+        raise AssertionError(
+            f"CRITICAL SAFETY RAIL VIOLATION: Target path '{dataset_path}' does not resolve to 'valid'."
+        )
+
+
 def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
     """Loads central configuration.
 
@@ -71,14 +115,19 @@ def run_validation(
     model_name_or_path: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
     save_results: bool = True,
+    batch_size: Optional[int] = None,
 ) -> Dict[str, float]:
-    """Runs evaluation on the valid split only.
+    """Runs evaluation strictly on the valid split.
+
+    Enforces runtime safety rails, loads candidate documents and queries from
+    data/raw/valid, encodes embeddings, and computes ranking metrics.
 
     Args:
         model_name_or_path: Optional path or HuggingFace ID of model to evaluate.
             If None, evaluates the current embedder configuration in config.yaml.
         config: Optional pre-loaded config dict.
         save_results: If True, writes results JSON to eval/results/.
+        batch_size: Optional batch size for encoding.
 
     Returns:
         Dictionary of calculated metrics (NDCG@10, MRR@10, Recall@k).
@@ -92,11 +141,13 @@ def run_validation(
     valid_split_name = data_cfg.get("valid_split", "valid")
     valid_path = raw_dir / valid_split_name
 
-    # STRICT SAFETY CHECK: Ensure test split is never accessed
-    assert "test" not in str(valid_path).lower(), "SAFETY VIOLATION: Test split path referenced!"
+    # =========================================================================
+    # MANDATORY SAFETY RAIL CHECK
+    # =========================================================================
+    verify_safety_rails(valid_path, valid_split_name)
 
     logger.info("=" * 70)
-    logger.info("Starting validation harness against '%s' split ONLY...", valid_split_name)
+    logger.info("Starting Validation Harness (Safety Rails Verified: 'valid' split ONLY)")
     logger.info("Validation dataset path: %s", valid_path)
 
     if not valid_path.exists():
@@ -128,13 +179,25 @@ def run_validation(
     unique_corpus_ids: List[str] = list(cid_to_code.keys())
     unique_codes: List[str] = [cid_to_code[cid] for cid in unique_corpus_ids]
 
-    eval_batch_size = int(config.get("finetuning", {}).get("eval_batch_size", 32))
+    if batch_size is None:
+        eval_batch_size = int(config.get("finetuning", {}).get("eval_batch_size", 32))
+    else:
+        eval_batch_size = batch_size
 
+    logger.info("Target model checkpoint: %s", model_name_or_path or "default from config")
     logger.info("Encoding %d validation queries...", len(queries))
-    query_embeddings = encode(queries, batch_size=eval_batch_size, model_name_or_path=model_name_or_path)
+    query_embeddings = encode(
+        queries,
+        batch_size=eval_batch_size,
+        model_name_or_path=model_name_or_path,
+    )
 
     logger.info("Encoding %d candidate code snippets...", len(unique_codes))
-    corpus_embeddings = encode(unique_codes, batch_size=eval_batch_size, model_name_or_path=model_name_or_path)
+    corpus_embeddings = encode(
+        unique_codes,
+        batch_size=eval_batch_size,
+        model_name_or_path=model_name_or_path,
+    )
 
     logger.info("Computing retrieval metrics (NDCG@10, MRR@10, Recall@k)...")
     metrics = evaluate_ranking(
@@ -149,6 +212,7 @@ def run_validation(
     model_label = model_name_or_path or config.get("model", {}).get("name", "baseline")
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
+    # Format output block
     logger.info("=" * 60)
     logger.info("Validation Results for '%s':", model_label)
     logger.info("=" * 60)
@@ -175,6 +239,79 @@ def run_validation(
     return metrics
 
 
+def test_safety_rail_enforcement() -> None:
+    """Unit test for safety rail enforcement function.
+
+    Verifies that any attempt to evaluate against 'test' raises AssertionError.
+    """
+    logger = setup_logger("INFO")
+    logger.info("Running internal safety rail validation self-test...")
+
+    # Test 1: valid path passes
+    valid_test_path = _repo_root / "data" / "raw" / "valid"
+    verify_safety_rails(valid_test_path, "valid")
+
+    # Test 2: 'test' split name triggers assertion
+    try:
+        verify_safety_rails(_repo_root / "data" / "raw" / "test", "test")
+        raise RuntimeError("Safety rail failed to catch test split!")
+    except AssertionError as e:
+        logger.info("Safety Rail Test 1 Passed: Caught prohibited split name -> %s", e)
+
+    # Test 3: 'test' in path triggers assertion
+    try:
+        verify_safety_rails(_repo_root / "data" / "raw" / "test", "valid")
+        raise RuntimeError("Safety rail failed to catch test in path!")
+    except AssertionError as e:
+        logger.info("Safety Rail Test 2 Passed: Caught prohibited path -> %s", e)
+
+    logger.info("All safety rail checks verified successfully!")
+
+
 if __name__ == "__main__":
-    target_model = sys.argv[1] if len(sys.argv) > 1 else None
-    run_validation(model_name_or_path=target_model)
+    parser = argparse.ArgumentParser(
+        description="Standalone validation harness for Ariadne bi-encoder checkpoints."
+    )
+    parser.add_argument(
+        "checkpoint",
+        nargs="?",
+        default=None,
+        help="Path or identifier of model checkpoint to evaluate.",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        dest="checkpoint_flag",
+        type=str,
+        default=None,
+        help="Path or identifier of model checkpoint to evaluate.",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Batch size for query and document encoding.",
+    )
+    parser.add_argument(
+        "--no-save",
+        action="store_true",
+        default=False,
+        help="Do not save result JSON to eval/results/.",
+    )
+    parser.add_argument(
+        "--test-safety-rail",
+        action="store_true",
+        default=False,
+        help="Run self-test asserting safety rails raise on test split.",
+    )
+    args = parser.parse_args()
+
+    if args.test_safety_rail:
+        test_safety_rail_enforcement()
+        sys.exit(0)
+
+    target_ckpt = args.checkpoint_flag or args.checkpoint
+    run_validation(
+        model_name_or_path=target_ckpt,
+        save_results=not args.no_save,
+        batch_size=args.batch_size,
+    )
