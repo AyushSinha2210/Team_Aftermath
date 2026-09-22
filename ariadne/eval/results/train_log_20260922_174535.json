@@ -1,0 +1,51 @@
+{
+  "timestamp": "20260922_174535",
+  "experiment_tag": "round2_dense",
+  "base_model": "ariadne/finetuning/checkpoints/checkpoint-round1_bm25-40",
+  "final_step": 30,
+  "initial_ndcg@10": 0.7225638765585715,
+  "initial_mrr@10": 0.6925698412698412,
+  "best_ndcg@10": 0.7737164914867392,
+  "improvement_over_baseline": 0.051152614928167695,
+  "training_logs": [
+    {
+      "step": 10,
+      "loss": 1.3382017612457275,
+      "learning_rate": 1.4814814814814815e-05,
+      "metrics": {
+        "ndcg@10": 0.7569045828882267,
+        "mrr@10": 0.7274634920634921,
+        "recall@1": 0.678,
+        "recall@5": 0.798,
+        "recall@10": 0.852
+      },
+      "timestamp": "2026-09-22T17:27:40.594328+00:00"
+    },
+    {
+      "step": 20,
+      "loss": 1.3984875679016113,
+      "learning_rate": 7.4074074074074075e-06,
+      "metrics": {
+        "ndcg@10": 0.7635196256865073,
+        "mrr@10": 0.7338031746031745,
+        "recall@1": 0.678,
+        "recall@5": 0.814,
+        "recall@10": 0.858
+      },
+      "timestamp": "2026-09-22T17:38:31.305934+00:00"
+    },
+    {
+      "step": 30,
+      "loss": 0.7575781345367432,
+      "learning_rate": 0.0,
+      "metrics": {
+        "ndcg@10": 0.7737164914867392,
+        "mrr@10": 0.7427373015873016,
+        "recall@1": 0.69,
+        "recall@5": 0.81,
+        "recall@10": 0.874
+      },
+      "timestamp": "2026-09-22T17:45:35.048333+00:00"
+    }
+  ]
+}
