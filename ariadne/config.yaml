@@ -15,6 +15,7 @@ global:
 # Small, CPU-friendly code/text representation model (<35M parameters)
 model:
   name: "sentence-transformers/all-MiniLM-L6-v2"
+  final_checkpoint: "finetuning/checkpoints/best_biencoder"
   embedder_entrypoint: "ariadne.finetuning.embedder:encode"
   pooling: "mean"
   embedding_dim: 384
