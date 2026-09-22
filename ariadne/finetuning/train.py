@@ -179,6 +179,8 @@ def evaluate_checkpoint_on_valid(
 def train(
     config: Optional[Dict[str, Any]] = None,
     base_model_or_ckpt: Optional[str] = None,
+    use_hard_negatives: Optional[bool] = None,
+    triplets_path: Optional[str] = None,
     max_steps: Optional[int] = None,
     learning_rate: Optional[float] = None,
     eval_steps: Optional[int] = None,
@@ -266,11 +268,39 @@ def train(
     )
     ckpt_base_dir.mkdir(parents=True, exist_ok=True)
 
+    # 3. Handle Hard Negatives
+    if use_hard_negatives is None:
+        use_hard_negatives = bool(ft_cfg.get("hard_negatives", {}).get("enabled", False))
+
+    triplets_data: Optional[List[Dict[str, Any]]] = None
+    if use_hard_negatives:
+        if triplets_path is None:
+            processed_dir = _repo_root / data_cfg.get("processed_dir", "data/processed")
+            triplet_file = processed_dir / "train_bm25_triplets.json"
+        else:
+            triplet_file = Path(triplets_path)
+            if not triplet_file.exists() and (_repo_root / triplets_path).exists():
+                triplet_file = _repo_root / triplets_path
+
+        # EXCEPTION TO TRAIN-ONLY RULE (Phase 6):
+        # When training with round2 iterative dense negatives, triplets are harvested
+        # from 'valid' to resolve false positives. 'test' remains strictly prohibited.
+
+        if not triplet_file.exists():
+            logger.info("Mined triplets file not found at %s. Running BM25 mining...", triplet_file)
+            from ariadne.finetuning.hard_negative_mining import mine_bm25_hard_negatives
+            mine_bm25_hard_negatives(config=config, output_path=triplet_file)
+
+        with open(triplet_file, "r", encoding="utf-8") as f:
+            triplets_data = json.load(f)
+        logger.info("Loaded %d mined hard-negative triplets from %s", len(triplets_data), triplet_file)
+
     logger.info("Base Model: %s on device '%s'", base_model_name, device)
     logger.info("Batch Size: %d | Learning Rate: %s | Max Steps: %d", batch_size, learning_rate, max_steps)
+    logger.info("Hard Negatives Enabled: %s", use_hard_negatives)
     logger.info("Evaluation every %d steps | Early Stopping Patience: %d", eval_steps, patience)
 
-    # 3. Model & Loss initialization
+    # 4. Model & Loss initialization
     model = SentenceTransformer(base_model_name, device=device)
     model.max_seq_length = max_seq_length
 
@@ -280,7 +310,7 @@ def train(
     num_warmup_steps = max(1, int(max_steps * warmup_ratio))
     scheduler = create_warmup_scheduler(optimizer, num_warmup_steps, max_steps)
 
-    # 4. Measure baseline score on valid before training
+    # 5. Measure baseline score on valid before training
     logger.info("Evaluating baseline checkpoint on valid split before fine-tuning...")
     init_metrics = evaluate_checkpoint_on_valid(model, valid_dataset, batch_size=eval_batch_size)
     best_ndcg = init_metrics["ndcg@10"]
@@ -290,11 +320,16 @@ def train(
         init_metrics["mrr@10"],
     )
 
-    # 5. Prepare training pairs
-    train_queries: List[str] = train_dataset["query"]
-    train_codes: List[str] = train_dataset["code"]
-    num_data = len(train_queries)
-    indices = list(range(num_data))
+    # 6. Prepare training pairs or triplets
+    if triplets_data is not None:
+        num_data = len(triplets_data)
+        indices = list(range(num_data))
+    else:
+        train_queries: List[str] = train_dataset["query"]
+        train_codes: List[str] = train_dataset["code"]
+        num_data = len(train_queries)
+        indices = list(range(num_data))
+
     random.shuffle(indices)
 
     training_logs: List[Dict[str, Any]] = []
@@ -304,7 +339,7 @@ def train(
 
     model.train()
 
-    # 6. Training Loop
+    # 7. Training Loop
     while step < max_steps:
         step += 1
 
@@ -314,11 +349,22 @@ def train(
         if data_idx == 0:
             random.shuffle(indices)
 
-        batch_q = [train_queries[idx] for idx in batch_indices]
-        batch_c = [train_codes[idx] for idx in batch_indices]
+        if triplets_data is not None:
+            batch_items = [triplets_data[idx] for idx in batch_indices]
+            batch_q = [item["query"] for item in batch_items]
+            batch_pos = [item["positive_code"] for item in batch_items]
+            batch_neg = [item["hard_negative_code"] for item in batch_items]
+            # MultipleNegativesRankingLoss with triplets: anchor, positive, hard negative
+            features = [
+                model.tokenize(batch_q),
+                model.tokenize(batch_pos),
+                model.tokenize(batch_neg),
+            ]
+        else:
+            batch_q = [train_queries[idx] for idx in batch_indices]
+            batch_c = [train_codes[idx] for idx in batch_indices]
+            features = [model.tokenize(batch_q), model.tokenize(batch_c)]
 
-        # Contrastive in-batch negatives: anchor (query) and positive (code)
-        features = [model.tokenize(batch_q), model.tokenize(batch_c)]
         loss = loss_fn(features, labels=None)
 
         optimizer.zero_grad()
@@ -423,6 +469,8 @@ def train(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contrastive fine-tuning for Ariadne bi-encoder.")
     parser.add_argument("--base-model", type=str, default=None, help="Base model name or checkpoint path.")
+    parser.add_argument("--hard-negatives", action="store_true", default=False, help="Train with hard negative triplets.")
+    parser.add_argument("--triplets-path", type=str, default=None, help="Path to mined triplets JSON.")
     parser.add_argument("--steps", type=int, default=None, help="Maximum training steps.")
     parser.add_argument("--lr", type=float, default=None, help="Learning rate.")
     parser.add_argument("--eval-steps", type=int, default=None, help="Evaluation interval.")
@@ -431,6 +479,8 @@ if __name__ == "__main__":
 
     train(
         base_model_or_ckpt=args.base_model,
+        use_hard_negatives=args.hard_negatives,
+        triplets_path=args.triplets_path,
         max_steps=args.steps,
         learning_rate=args.lr,
         eval_steps=args.eval_steps,
