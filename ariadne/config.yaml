@@ -76,7 +76,7 @@ retrieval:
 reranking:
   cross_encoder_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
   rerank_top_k: 20
-  calibration_threshold: 0.35    # Score variance threshold below which to abstain
+  calibration_threshold: 0.01    # Score variance threshold below which to abstain
   structural:
     ast_enabled: false           # Hands-on phase feature for JS/Python repos
     call_graph_depth: 2

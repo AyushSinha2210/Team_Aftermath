@@ -58,11 +58,18 @@ def calibrate(reranked_candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
 			"top_candidate": None,
 		}
 
-	# Raw logits are unbounded (about -11.5 to 5.6 observed), so sigmoid maps them to (0, 1).
-	sigmoid_scores = 1.0 / (1.0 + np.exp(-np.clip(scores, -709.0, 709.0)))
-	sigmoid_variance = float(np.var(sigmoid_scores))
-	# Normalize by 0.25, the maximum variance for scores bounded to [0, 1].
-	normalized_variance = sigmoid_variance / 0.25
+	shifted_scores = scores - np.max(scores)
+	probs = np.exp(shifted_scores)
+	probs /= np.sum(probs)
+	assert np.isclose(np.sum(probs), 1.0), "Softmax probabilities must sum to 1"
+	softmax_variance = float(np.var(probs))
+	# Entropy of probs is a documented alternative worth exploring later (Gemini review).
+	# Normalize by the maximum variance of an n-item probability distribution so the
+	# existing threshold remains on a comparable [0, 1] confidence scale. The
+	# configured 0.35 threshold was tuned for the old sigmoid signal and needs
+	# empirical re-tuning against this softmax signal.
+	max_softmax_variance = (scores.size - 1) / (scores.size * scores.size)
+	normalized_variance = softmax_variance / max_softmax_variance
 	should_abstain = normalized_variance < threshold
 
 	return {

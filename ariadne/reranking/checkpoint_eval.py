@@ -1,1 +1,311 @@
-"""A/B evaluation harness comparing configurations against validation split (owned by Person C)."""
+"""Day 4-5 checkpoint evaluation for dense retrieval and cross-encoder reranking."""
+
+from __future__ import annotations
+
+import json
+import argparse
+import sys
+import traceback
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Sequence, Set, Tuple
+
+import numpy as np
+from tqdm import tqdm
+
+_repo_root = Path(__file__).resolve().parent.parent
+_workspace_root = _repo_root.parent
+for path in [str(_workspace_root), str(_repo_root)]:
+	if path not in sys.path:
+		sys.path.insert(0, path)
+
+from ariadne.eval.metrics import evaluate_ranking
+from ariadne.finetuning.embedder import encode
+from ariadne.reranking.calibration import calibrate
+from ariadne.reranking.cross_encoder import rerank
+
+
+CONFIG_B_STATUS = (
+	"Config B (dense+BM25 fusion): NOT AVAILABLE — "
+	"retrieval/pipeline.py not yet implemented"
+)
+
+
+def load_valid_records() -> Tuple[List[str], List[str], List[str], List[str]]:
+	"""Loads only the configured valid split using the validation convention."""
+	from ariadne.finetuning.validate import load_config, verify_safety_rails
+
+	config = load_config()
+	data_config = config.get("data", {})
+	raw_dir = _repo_root / data_config.get("raw_dir", "data/raw")
+	valid_split_name = data_config.get("valid_split", "valid")
+	valid_path = raw_dir / valid_split_name
+	verify_safety_rails(valid_path, valid_split_name)
+
+	if not valid_path.exists():
+		raise FileNotFoundError(f"Validation dataset split not found at {valid_path}")
+
+	from datasets import load_from_disk
+
+	valid_dataset = load_from_disk(str(valid_path))
+	return (
+		list(valid_dataset["query_id"]),
+		list(valid_dataset["corpus_id"]),
+		list(valid_dataset["query"]),
+		list(valid_dataset["code"]),
+	)
+
+
+def build_qrels(query_ids: Sequence[str], corpus_ids: Sequence[str]) -> Dict[str, Set[str]]:
+	"""Builds query-to-relevant-corpus mappings from validation pairs."""
+	qrels: Dict[str, Set[str]] = {}
+	for query_id, corpus_id in zip(query_ids, corpus_ids):
+		qrels.setdefault(query_id, set()).add(corpus_id)
+	return qrels
+
+
+def unique_corpus(corpus_ids: Sequence[str], codes: Sequence[str]) -> Tuple[List[str], List[str]]:
+	"""Keeps the first code occurrence for every corpus ID."""
+	cid_to_code: Dict[str, str] = {}
+	for corpus_id, code in zip(corpus_ids, codes):
+		cid_to_code.setdefault(corpus_id, code)
+	unique_ids = list(cid_to_code)
+	return unique_ids, [cid_to_code[corpus_id] for corpus_id in unique_ids]
+
+
+def dense_rankings(
+	query_embeddings: np.ndarray,
+	corpus_embeddings: np.ndarray,
+	corpus_ids: Sequence[str],
+	corpus_codes: Sequence[str],
+) -> List[List[Dict[str, Any]]]:
+	"""Builds dense-ranked candidate dictionaries for every query."""
+	similarities = np.matmul(query_embeddings, corpus_embeddings.T)
+	rankings: List[List[Dict[str, Any]]] = []
+	for query_scores in similarities:
+		indices = np.argsort(-query_scores)
+		rankings.append(
+			[
+				{
+					"id": str(corpus_ids[index]),
+					"text": str(corpus_codes[index]),
+					"fusion_score": float(query_scores[index]),
+				}
+				for index in indices
+			]
+		)
+	return rankings
+
+
+def _evaluate_ranked_orders(
+	ranked_ids: Sequence[Sequence[str]],
+	query_ids: Sequence[str],
+	qrels: Dict[str, Set[str]],
+) -> Dict[str, float]:
+	"""Evaluates per-query ID orders through the shared evaluate_ranking function."""
+	metric_names = ["ndcg@10", "mrr@10", "recall@1", "recall@5", "recall@10"]
+	per_query_metrics: List[Dict[str, float]] = []
+	for query_id, ordered_ids in zip(query_ids, ranked_ids):
+		if query_id not in qrels or not ordered_ids:
+			continue
+		candidate_count = len(ordered_ids)
+		query_vector = np.arange(candidate_count, 0, -1, dtype=np.float32)[None, :]
+		corpus_vectors = np.eye(candidate_count, dtype=np.float32)
+		per_query_metrics.append(
+			evaluate_ranking(
+				query_embeddings=query_vector,
+				corpus_embeddings=corpus_vectors,
+				query_ids=[query_id],
+				corpus_ids=list(ordered_ids),
+				qrels=qrels,
+				top_k=10,
+			)
+		)
+
+	if not per_query_metrics:
+		return {name: 0.0 for name in metric_names}
+	return {
+		name: float(np.mean([metrics[name] for metrics in per_query_metrics]))
+		for name in metric_names
+	}
+
+
+def _print_calibration_diagnostic(
+	query_id: str,
+	reranked_candidates: Sequence[Dict[str, Any]],
+	calibration_result: Dict[str, Any],
+) -> None:
+	"""Prints the exact result returned by calibrate() without recomputing it."""
+	raw_scores = [
+		float(candidate["rerank_score"])
+		for candidate in reranked_candidates
+		if "rerank_score" in candidate
+	]
+	top_candidate = calibration_result.get("top_candidate")
+	print(f"\nConfig C diagnostic query_id={query_id!r}", flush=True)
+	print(
+		f"  candidate_ids={[str(candidate['id']) for candidate in reranked_candidates]!r}",
+		flush=True,
+	)
+	print(f"  raw_rerank_scores={raw_scores!r}", flush=True)
+	print(
+		"  calibration_result="
+		f"{{'confidence_variance': {calibration_result['confidence_variance']!r}, "
+		f"'should_abstain': {calibration_result['should_abstain']!r}, "
+		f"'top_candidate_id': "
+		f"{None if top_candidate is None else str(top_candidate['id'])!r}}}",
+		flush=True,
+	)
+
+
+def evaluate_checkpoint(
+	query_ids: Sequence[str],
+	corpus_ids: Sequence[str],
+	queries: Sequence[str],
+	corpus_codes: Sequence[str],
+	qrels: Dict[str, Set[str]],
+	config: Dict[str, Any] | None = None,
+	verbose: bool = False,
+) -> Dict[str, Any]:
+	"""Evaluates dense Config A and reranked/calibrated Config C."""
+	if config is None:
+		from ariadne.finetuning.validate import load_config
+
+		config = load_config()
+	eval_batch_size = int(config.get("finetuning", {}).get("eval_batch_size", 32))
+	print(f"Encoding {len(queries)} queries...", flush=True)
+	query_embeddings = encode(list(queries), batch_size=eval_batch_size)
+	print(f"Encoding {len(corpus_codes)} corpus candidates...", flush=True)
+	corpus_embeddings = encode(list(corpus_codes), batch_size=eval_batch_size)
+	print("Dense embeddings ready; starting Config A and Config C evaluation.", flush=True)
+	all_dense_candidates = dense_rankings(
+		query_embeddings, corpus_embeddings, corpus_ids, corpus_codes
+	)
+
+	config_a_ids = [[candidate["id"] for candidate in candidates] for candidates in all_dense_candidates]
+	config_a_metrics = _evaluate_ranked_orders(config_a_ids, query_ids, qrels)
+
+	config_c_ids: List[List[str]] = []
+	config_c_query_ids: List[str] = []
+	abstentions = 0
+	for query_id, query, candidates in tqdm(
+		list(zip(query_ids, queries, all_dense_candidates)),
+		desc="Evaluating Config A/C",
+		unit="query",
+	):
+		candidate_ids = [str(candidate["id"]) for candidate in candidates[:50]]
+		try:
+			reranked_candidates = rerank(query, candidates[:50])
+			calibration_result = calibrate(reranked_candidates)
+			if verbose:
+				_print_calibration_diagnostic(
+					str(query_id), reranked_candidates, calibration_result
+				)
+			abstentions += int(calibration_result["should_abstain"])
+			config_c_ids.append([candidate["id"] for candidate in reranked_candidates])
+			config_c_query_ids.append(str(query_id))
+		except Exception as error:
+			print(
+				f"\nERROR evaluating query_id={query_id!r}, "
+				f"candidate_ids={candidate_ids!r}: {error!r}",
+				file=sys.stderr,
+				flush=True,
+			)
+			traceback.print_exc(file=sys.stderr)
+			print("Continuing with the next query.", file=sys.stderr, flush=True)
+
+	config_c_metrics = _evaluate_ranked_orders(config_c_ids, config_c_query_ids, qrels)
+	query_count = len(config_c_query_ids)
+	return {
+		"config_a": {
+			"name": "Config A (dense retrieval only)",
+			"metrics": config_a_metrics,
+		},
+		"config_c": {
+			"name": "Config C (dense + cross-encoder reranking + calibration)",
+			"metrics": config_c_metrics,
+			"calibration": {
+				"abstention_count": abstentions,
+				"abstention_rate": abstentions / query_count if query_count else 0.0,
+			},
+		},
+		"config_b": {"status": CONFIG_B_STATUS},
+	}
+
+
+def main(limit: int | None = None, verbose: bool = False) -> Path:
+	"""Runs the valid-split checkpoint evaluation and writes its JSON report."""
+	query_ids, corpus_ids, queries, codes = load_valid_records()
+	selected_corpus_ids = list(corpus_ids)
+	if limit is not None:
+		if limit <= 0:
+			raise ValueError("--limit must be a positive integer")
+		selected_query_ids = set(query_ids[:limit])
+		selected_rows = [
+			index for index, query_id in enumerate(query_ids) if query_id in selected_query_ids
+		]
+		query_ids = [query_ids[index] for index in selected_rows]
+		selected_corpus_ids = [corpus_ids[index] for index in selected_rows]
+		queries = [queries[index] for index in selected_rows]
+		print(f"Applying --limit {limit}: evaluating {len(query_ids)} query records.", flush=True)
+	qrels = build_qrels(query_ids, selected_corpus_ids)
+	unique_ids, unique_codes = unique_corpus(corpus_ids, codes)
+	report = evaluate_checkpoint(
+		query_ids,
+		unique_ids,
+		queries,
+		unique_codes,
+		qrels,
+		verbose=verbose,
+	)
+	timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+	results_dir = _repo_root / "eval" / "results"
+	results_dir.mkdir(parents=True, exist_ok=True)
+	report_payload = {
+		"title": "Ariadne Day 4-5 Reranking Checkpoint Evaluation",
+		"timestamp": timestamp,
+		"evaluation_split": "valid (data/raw/valid)",
+		"num_queries": len(set(query_ids)),
+		"num_candidates": len(unique_ids),
+		"models": report,
+	}
+	report_path = results_dir / f"checkpoint_eval_{timestamp}.json"
+	with open(report_path, "w", encoding="utf-8") as file:
+		json.dump(report_payload, file, indent=2)
+
+	config_a_ndcg = report["config_a"]["metrics"]["ndcg@10"]
+	config_c_ndcg = report["config_c"]["metrics"]["ndcg@10"]
+	winner = "Config C" if config_c_ndcg > config_a_ndcg else "Config A"
+	print("=" * 90, flush=True)
+	print("ARIADNE DAY 4-5 CHECKPOINT EVALUATION", flush=True)
+	print("=" * 90, flush=True)
+	print(CONFIG_B_STATUS, flush=True)
+	print(f"{'Metric':<14} | {'Config A':>12} | {'Config C':>12}", flush=True)
+	print("-" * 45, flush=True)
+	for metric in ["ndcg@10", "mrr@10", "recall@1", "recall@5", "recall@10"]:
+		print(
+			f"{metric:<14} | {report['config_a']['metrics'][metric]:>12.4f} | "
+			f"{report['config_c']['metrics'][metric]:>12.4f}",
+			flush=True,
+		)
+	print(f"CURRENT WINNER (Config B pending): {winner}", flush=True)
+	print(f"Config C abstention rate: {report['config_c']['calibration']['abstention_rate']:.2%}", flush=True)
+	print(f"Checkpoint report saved to: {report_path}", flush=True)
+	return report_path
+
+
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description="Run the valid-split reranking checkpoint evaluation.")
+	parser.add_argument(
+		"--limit",
+		type=int,
+		default=None,
+		help="Evaluate only the first N query records; default evaluates the full valid split.",
+	)
+	parser.add_argument(
+		"--verbose",
+		action="store_true",
+		help="Print per-query Config C score and calibration diagnostics.",
+	)
+	arguments = parser.parse_args()
+	main(limit=arguments.limit, verbose=arguments.verbose)
