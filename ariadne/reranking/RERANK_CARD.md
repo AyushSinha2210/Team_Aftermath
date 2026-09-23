@@ -71,16 +71,24 @@ architecture diagram's attribution requirement.
 
 ## 4. Known Findings & Limitations (read before building on this)
 
-1. **Reranking currently underperforms on measured data.** Full 500-query valid split,
-   untrained base embedder: Config A (dense alone) NDCG@10 = 0.6090, Config C
-   (dense + rerank) NDCG@10 = 0.4687. Reranking reduced every metric measured
-   (NDCG, MRR, Recall@1/5/10). **Interim recommendation: Config A (no reranking)**
-   until this is re-tested with the real fine-tuned checkpoint and/or real fusion.
+1. Reranking currently underperforms on measured NDCG/MRR/Recall@1, but a targeted
+  diagnostic clarifies why. Full 500-query valid split, untrained base embedder:
+  Config A (dense alone) NDCG@10 = 0.6090, Config C (dense + rerank) NDCG@10 = 0.4687.
+  On a 5-query diagnostic sample restricted to queries where the relevant document was
+  present in the reranked top-20 pool, reranking IMPROVED top-10 placement
+  (original top-10 fraction 66.67% -> reranked top-10 fraction 100.00%), yet recall@1
+  across the same sample dropped to 0.0000. This indicates the cross-encoder correctly
+  recognizes coarse relevance (pulling relevant candidates into the top-10) but fails
+  at fine-grained top-1 discrimination between similar code candidates — consistent
+  with known cross-encoder failure modes on algorithmically similar code (e.g.
+  distinguishing binary search from a similar search variant sharing vocabulary).
+  Candidate-membership integrity between pre- and post-rerank pools was verified via
+  assertion (set equality) across all diagnostic queries with zero failures, ruling out
+  a data-alignment bug as the cause. **Interim recommendation: Config A (no reranking)**
+  until this is re-tested with the real fine-tuned checkpoint and/or real fusion, since
+  a stronger base retriever may change the candidate pool's composition and difficulty.
 2. **Abstention is a diagnostic signal only — not yet wired to change ranking output.**
-   `should_abstain=True` is computed and counted (44% of queries in the last full run)
-   but does NOT currently trigger a fallback to the pre-rerank order. If you build a
-   feature assuming abstention changes what's shown to the user, it currently doesn't —
-   that logic doesn't exist yet.
+  The calibration heuristic flagged 44% of queries in the full run as low-confidence, but abstention was not connected to ranking fallback and therefore had no effect on the reported metrics.
 3. **`calibration_threshold=0.01`** was derived from a 5-query manual inspection, not
    a proper sweep over the full valid split. Treat as provisional.
 4. **All numbers above are on the untrained base model** (`all-MiniLM-L6-v2`), not
@@ -92,7 +100,8 @@ architecture diagram's attribution requirement.
 ## 5. What to Expect From This Module for the Demo
 
 Given finding #1, the demo's ablation table should currently show Config A as the
-strongest configuration, with Config C included as a measured (worse) comparison point
+current leader among evaluated configurations; final decision pending Config B and the
+fine-tuned checkpoint, with Config C included as a measured (worse) comparison point
 rather than the headline result — that's a legitimate, honest ablation finding, not
   a failure to hide.
 
