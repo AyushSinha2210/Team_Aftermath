@@ -188,6 +188,10 @@ def evaluate_checkpoint(
 	config_c_ids: List[List[str]] = []
 	config_c_query_ids: List[str] = []
 	abstentions = 0
+	pool_hit_query_count = 0
+	pool_hit_reranked_top10_count = 0
+	pool_hit_original_top10_count = 0
+	pool_hit_original_ranks: List[int] = []
 	for query_id, query, candidates in tqdm(
 		list(zip(query_ids, queries, all_dense_candidates)),
 		desc="Evaluating Config A/C",
@@ -195,7 +199,29 @@ def evaluate_checkpoint(
 	):
 		candidate_ids = [str(candidate["id"]) for candidate in candidates[:50]]
 		try:
+			pre_rerank_pool_ids = [str(candidate["id"]) for candidate in candidates[:20]]
 			reranked_candidates = rerank(query, candidates[:50])
+			reranked_pool_ids = [str(candidate["id"]) for candidate in reranked_candidates[:20]]
+			assert set(pre_rerank_pool_ids) == set(reranked_pool_ids), (
+				f"Candidate membership drift for query_id={query_id!r}: "
+				f"pre_rerank={pre_rerank_pool_ids!r}, reranked={reranked_pool_ids!r}"
+			)
+			relevant_ids = {str(candidate_id) for candidate_id in qrels.get(str(query_id), set())}
+			pool_relevant_ids = relevant_ids.intersection(pre_rerank_pool_ids)
+			if pool_relevant_ids:
+				pool_hit_query_count += 1
+				original_ranks = [
+					pre_rerank_pool_ids.index(candidate_id) + 1
+					for candidate_id in pool_relevant_ids
+				]
+				reranked_ranks = [
+					reranked_pool_ids.index(candidate_id) + 1
+					for candidate_id in pool_relevant_ids
+				]
+				best_original_rank = min(original_ranks)
+				pool_hit_original_ranks.append(best_original_rank)
+				pool_hit_original_top10_count += int(best_original_rank <= 10)
+				pool_hit_reranked_top10_count += int(min(reranked_ranks) <= 10)
 			calibration_result = calibrate(reranked_candidates)
 			if verbose:
 				_print_calibration_diagnostic(
@@ -216,6 +242,22 @@ def evaluate_checkpoint(
 
 	config_c_metrics = _evaluate_ranked_orders(config_c_ids, config_c_query_ids, qrels)
 	query_count = len(config_c_query_ids)
+	pool_diagnostic = {
+		"queries_with_relevant_in_rerank_pool": pool_hit_query_count,
+		"reranked_top10_fraction": (
+			pool_hit_reranked_top10_count / pool_hit_query_count
+			if pool_hit_query_count
+			else 0.0
+		),
+		"original_top10_fraction": (
+			pool_hit_original_top10_count / pool_hit_query_count
+			if pool_hit_query_count
+			else 0.0
+		),
+		"original_best_rank_mean": (
+			float(np.mean(pool_hit_original_ranks)) if pool_hit_original_ranks else None
+		),
+	}
 	return {
 		"config_a": {
 			"name": "Config A (dense retrieval only)",
@@ -228,6 +270,7 @@ def evaluate_checkpoint(
 				"abstention_count": abstentions,
 				"abstention_rate": abstentions / query_count if query_count else 0.0,
 			},
+			"pool_diagnostic": pool_diagnostic,
 		},
 		"config_b": {"status": CONFIG_B_STATUS},
 	}
@@ -290,6 +333,15 @@ def main(limit: int | None = None, verbose: bool = False) -> Path:
 		)
 	print(f"CURRENT WINNER (Config B pending): {winner}", flush=True)
 	print(f"Config C abstention rate: {report['config_c']['calibration']['abstention_rate']:.2%}", flush=True)
+	pool_diagnostic = report["config_c"]["pool_diagnostic"]
+	print(
+		"Relevant-in-top-20 diagnostic: "
+		f"{pool_diagnostic['queries_with_relevant_in_rerank_pool']} queries; "
+		f"original top-10 fraction={pool_diagnostic['original_top10_fraction']:.2%}; "
+		f"reranked top-10 fraction={pool_diagnostic['reranked_top10_fraction']:.2%}; "
+		f"original mean best rank={pool_diagnostic['original_best_rank_mean']}",
+		flush=True,
+	)
 	print(f"Checkpoint report saved to: {report_path}", flush=True)
 	return report_path
 
