@@ -45,9 +45,12 @@ def calibrate(reranked_candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
 	rerank_top_k = int(reranking_config.get("rerank_top_k", len(reranked_candidates)))
 	threshold = float(reranking_config.get("calibration_threshold", 0.35))
 	reranked_portion = reranked_candidates[:rerank_top_k]
-	scores = [float(candidate["rerank_score"]) for candidate in reranked_portion]
+	scores = np.asarray(
+		[float(candidate["rerank_score"]) for candidate in reranked_portion],
+		dtype=float,
+	)
 
-	if len(scores) < 2:
+	if scores.size < 2:
 		# Confidence cannot be determined from fewer than two rerank scores, so abstain.
 		return {
 			"should_abstain": True,
@@ -55,9 +58,11 @@ def calibrate(reranked_candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
 			"top_candidate": None,
 		}
 
-	raw_variance = float(np.var(scores))
+	# Raw logits are unbounded (about -11.5 to 5.6 observed), so sigmoid maps them to (0, 1).
+	sigmoid_scores = 1.0 / (1.0 + np.exp(-np.clip(scores, -709.0, 709.0)))
+	sigmoid_variance = float(np.var(sigmoid_scores))
 	# Normalize by 0.25, the maximum variance for scores bounded to [0, 1].
-	normalized_variance = raw_variance / 0.25
+	normalized_variance = sigmoid_variance / 0.25
 	should_abstain = normalized_variance < threshold
 
 	return {

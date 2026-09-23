@@ -21,7 +21,7 @@ def _config(threshold: float = 0.35) -> Dict[str, Any]:
 def test_dominant_top_score_does_not_abstain(monkeypatch) -> None:
     monkeypatch.setattr(calibration, "load_config", lambda: _config())
 
-    result = calibration.calibrate(_candidates([0.95, 0.2, 0.1, 0.1]))
+    result = calibration.calibrate(_candidates([6.0, -1.0, -2.0, -2.0]))
 
     assert result["should_abstain"] is False
     assert result["top_candidate"]["id"] == "0"
@@ -30,15 +30,16 @@ def test_dominant_top_score_does_not_abstain(monkeypatch) -> None:
 def test_nearly_identical_scores_abstain(monkeypatch) -> None:
     monkeypatch.setattr(calibration, "load_config", lambda: _config())
 
-    result = calibration.calibrate(_candidates([0.5, 0.51, 0.49, 0.5]))
+    result = calibration.calibrate(_candidates([0.0, 0.01, -0.01, 0.0]))
 
     assert result["should_abstain"] is True
     assert result["top_candidate"] is None
 
 
 def test_exact_threshold_does_not_abstain(monkeypatch) -> None:
-    scores = [0.0, 0.5, 0.5, 1.0]
-    normalized_variance = float(np.var(scores) / 0.25)
+    scores = [-2.0, -1.0, 1.0, 2.0]
+    sigmoid_scores = 1.0 / (1.0 + np.exp(-np.asarray(scores)))
+    normalized_variance = float(np.var(sigmoid_scores) / 0.25)
     monkeypatch.setattr(
         calibration,
         "load_config",
@@ -67,7 +68,7 @@ def test_empty_and_single_item_inputs_abstain(monkeypatch) -> None:
 
 
 def test_threshold_from_config_changes_decision(monkeypatch) -> None:
-    scores = _candidates([0.9, 0.2, 0.1, 0.1])
+    scores = _candidates([6.0, -1.0, -2.0, -2.0])
     monkeypatch.setattr(calibration, "load_config", lambda: _config(threshold=0.1))
     low_threshold_result = calibration.calibrate(scores)
 
@@ -81,6 +82,17 @@ def test_threshold_from_config_changes_decision(monkeypatch) -> None:
 def test_maximally_spread_scores_reach_normalization_ceiling(monkeypatch) -> None:
     monkeypatch.setattr(calibration, "load_config", lambda: _config())
 
-    result = calibration.calibrate(_candidates([0.0, 0.0, 1.0, 1.0]))
+    result = calibration.calibrate(_candidates([-100.0, -100.0, 100.0, 100.0]))
 
-    assert np.isclose(result["confidence_variance"], 1.0)
+    assert np.isclose(result["confidence_variance"], 1.0, atol=1e-12)
+
+
+def test_realistic_cross_encoder_logits_produce_sensible_decision(monkeypatch) -> None:
+    monkeypatch.setattr(calibration, "load_config", lambda: _config())
+
+    result = calibration.calibrate(
+        _candidates([-11.465719, -0.2, 0.8, 5.604678])
+    )
+
+    assert result["should_abstain"] is False
+    assert 0.0 < result["confidence_variance"] <= 1.0
