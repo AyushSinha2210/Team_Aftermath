@@ -1,0 +1,36 @@
+{
+  "title": "Ariadne Day 4-5 Reranking Checkpoint Evaluation",
+  "timestamp": "20260923_232103",
+  "evaluation_split": "valid (data/raw/valid)",
+  "num_queries": 500,
+  "num_candidates": 500,
+  "models": {
+    "config_a": {
+      "name": "Config A (dense retrieval only)",
+      "metrics": {
+        "ndcg@10": 0.6089507412290609,
+        "mrr@10": 0.5790174603174603,
+        "recall@1": 0.522,
+        "recall@5": 0.656,
+        "recall@10": 0.704
+      }
+    },
+    "config_c": {
+      "name": "Config C (dense + cross-encoder reranking + calibration)",
+      "metrics": {
+        "ndcg@10": 0.46865625444399517,
+        "mrr@10": 0.41058253968253966,
+        "recall@1": 0.312,
+        "recall@5": 0.54,
+        "recall@10": 0.656
+      },
+      "calibration": {
+        "abstention_count": 220,
+        "abstention_rate": 0.44
+      }
+    },
+    "config_b": {
+      "status": "Config B (dense+BM25 fusion): NOT AVAILABLE \u2014 retrieval/pipeline.py not yet implemented"
+    }
+  }
+}
