@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Mapping
 
 
@@ -31,6 +31,7 @@ class SparseRetriever:
         self.counts: list[Counter[str]] = []
         self.lengths: list[int] = []
         self.doc_freq: Counter[str] = Counter()
+        self.postings: dict[str, list[tuple[int, int]]] = {}
         self.avg_length = 0.0
 
     def index(self, corpus: Mapping[str, str]) -> None:
@@ -40,23 +41,26 @@ class SparseRetriever:
         self.lengths = [sum(counts.values()) for counts in self.counts]
         self.doc_freq = Counter(token for counts in self.counts for token in counts)
         self.avg_length = sum(self.lengths) / len(self.lengths) if self.lengths else 0.0
+        postings: dict[str, list[tuple[int, int]]] = defaultdict(list)
+        for index, counts in enumerate(self.counts):
+            for token, frequency in counts.items():
+                postings[token].append((index, frequency))
+        self.postings = dict(postings)
 
     def retrieve(self, query: str, k: int = 50) -> list[tuple[str, float]]:
         if k <= 0 or not self.ids:
             return []
         query_terms = set(tokenize(query))
         n = len(self.ids)
-        scores: list[tuple[str, float]] = []
-        for i, counts in enumerate(self.counts):
-            score = 0.0
-            for token in query_terms:
-                tf = counts[token]
-                if not tf:
-                    continue
-                df = self.doc_freq[token]
-                idf = math.log1p((n - df + 0.5) / (df + 0.5))
+        scores: dict[int, float] = defaultdict(float)
+        for token in query_terms:
+            postings = self.postings.get(token, [])
+            if not postings:
+                continue
+            df = self.doc_freq[token]
+            idf = math.log1p((n - df + 0.5) / (df + 0.5))
+            for i, tf in postings:
                 length_factor = 1 - self.b + self.b * self.lengths[i] / max(self.avg_length, 1)
-                score += idf * tf * (self.k1 + 1) / (tf + self.k1 * length_factor)
-            if score > 0:
-                scores.append((self.ids[i], score))
-        return sorted(scores, key=lambda item: (-item[1], item[0]))[:k]
+                scores[i] += idf * tf * (self.k1 + 1) / (tf + self.k1 * length_factor)
+        ordered = sorted(scores.items(), key=lambda item: (-item[1], self.ids[item[0]]))
+        return [(self.ids[i], score) for i, score in ordered[:k]]

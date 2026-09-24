@@ -54,10 +54,18 @@ class HybridSearchModel:
         if self.pipeline is None:
             raise RuntimeError("Call index before search")
         results: dict[str, dict[str, float]] = {}
-        for row in queries:
+        query_rows = list(queries)
+        if not query_rows:
+            return results
+        query_vectors = np.asarray(
+            self.encoder([str(row["text"]) for row in query_rows]), dtype=np.float32
+        )
+        if query_vectors.ndim != 2 or query_vectors.shape[0] != len(query_rows):
+            raise ValueError("Encoder must return one embedding per query")
+        for row, vector in zip(query_rows, query_vectors):
             query_id = str(row["id"])
             search_k = len(self.pipeline.corpus) if top_ranked is not None else top_k
-            candidates = self.pipeline.retrieve(str(row["text"]), k=search_k)
+            candidates = self.pipeline.retrieve(str(row["text"]), k=search_k, dense_vector=vector)
             if top_ranked is not None:
                 allowed = set(top_ranked.get(query_id, []))
                 candidates = [candidate for candidate in candidates if candidate["id"] in allowed][:top_k]

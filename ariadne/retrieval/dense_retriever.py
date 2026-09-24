@@ -39,7 +39,18 @@ class DenseRetriever:
         vector = np.asarray(self.encoder([query]), dtype=np.float32)
         if vector.shape != (1, self.embeddings.shape[1]):
             raise ValueError("Query embedding dimension differs from corpus embeddings")
-        vector /= max(float(np.linalg.norm(vector)), 1e-12)
-        scores = self.embeddings @ vector[0]
-        order = sorted(range(len(self.ids)), key=lambda i: (-float(scores[i]), self.ids[i]))
-        return [(self.ids[i], float(scores[i])) for i in order[:k]]
+        return self.retrieve_vector(vector[0], k)
+
+    def retrieve_vector(self, vector: np.ndarray, k: int = 50) -> list[tuple[str, float]]:
+        if k <= 0 or self.embeddings is None:
+            return []
+        vector = np.asarray(vector, dtype=np.float32)
+        if vector.shape != (self.embeddings.shape[1],):
+            raise ValueError("Query embedding dimension differs from corpus embeddings")
+        vector = vector / max(float(np.linalg.norm(vector)), 1e-12)
+        scores = self.embeddings @ vector
+        count = min(k, len(self.ids))
+        threshold = float(np.partition(scores, -count)[-count])
+        candidates = np.flatnonzero(scores >= threshold)
+        order = sorted(candidates, key=lambda i: (-float(scores[i]), self.ids[i]))
+        return [(self.ids[i], float(scores[i])) for i in order[:count]]

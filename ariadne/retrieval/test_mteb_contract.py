@@ -42,7 +42,13 @@ def test_abs_encoder_batches() -> None:
 
 
 def test_hybrid_search_protocol_returns_mteb_scores() -> None:
-    model = HybridSearchModel(encoder=fake_encode)
+    calls: list[int] = []
+
+    def tracked_encode(texts: list[str]) -> np.ndarray:
+        calls.append(len(texts))
+        return fake_encode(texts)
+
+    model = HybridSearchModel(encoder=tracked_encode)
     assert isinstance(model, SearchProtocol)
     model.index(
         [{"id": "a", "body": "binary_search"}, {"id": "b", "body": "quick sort"}],
@@ -53,7 +59,7 @@ def test_hybrid_search_protocol_returns_mteb_scores() -> None:
         num_proc=None,
     )
     scores = model.search(
-        [{"id": "q", "text": "binary search"}],
+        [{"id": "q", "text": "binary search"}, {"id": "q2", "text": "sort"}],
         task_metadata=None,
         hf_split="test",
         hf_subset="default",
@@ -61,9 +67,10 @@ def test_hybrid_search_protocol_returns_mteb_scores() -> None:
         encode_kwargs={},
         num_proc=None,
     )
-    assert list(scores) == ["q"]
+    assert list(scores) == ["q", "q2"]
     assert list(scores["q"])[0] == "a"
     assert all(isinstance(score, float) for score in scores["q"].values())
+    assert calls == [2, 2]
 
 
 def test_runner_writes_only_completed_test_result(monkeypatch) -> None:
