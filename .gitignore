@@ -10,6 +10,7 @@ venv/
 .DS_Store
 Thumbs.db
 *.pdf
+!WorkDone.pdf
 ariadne/data/raw/*
 !ariadne/data/raw/.gitkeep
 ariadne/finetuning/checkpoints/*
