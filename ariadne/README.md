@@ -65,6 +65,7 @@ ariadne/
 
 1. **Install dependencies**:
    ```bash
+   # Use Python 3.11 for the pinned PyTorch and NumPy versions.
    pip install -r requirements.txt
    ```
 
@@ -75,3 +76,35 @@ ariadne/
 
 3. **Verify configuration**:
    All pipeline components read from `config.yaml` as the single source of truth.
+
+## Person B: retrieval and benchmark
+
+The live hybrid pipeline accepts a mapping from stable document IDs to code text:
+
+```python
+from ariadne.retrieval.pipeline import HybridPipeline
+
+pipeline = HybridPipeline({"snippet-1": "def binary_search(items, target): ..."})
+top_50 = pipeline.retrieve("find an item in a sorted list", k=50)
+```
+
+Each result includes `id`, `text`, `fusion_score`, the available dense/BM25 scores,
+and `sources`. Person C can pass this list directly to its reranker. The embedder
+automatically uses Person A's fine-tuned checkpoint when it exists at the path
+in `config.yaml`; otherwise it uses the configured pretrained baseline. An
+explicit checkpoint can be supplied to the evaluation command.
+
+Run the official AppsRetrieval test evaluation from the repository root:
+
+```bash
+python -m ariadne.retrieval.run_mteb_eval --mode hybrid
+python -m ariadne.retrieval.run_mteb_eval --mode dense --model-path ariadne/finetuning/checkpoints/best_biencoder
+```
+
+The first command uses MTEB's `SearchProtocol` to score the actual BM25 + dense
++ RRF ranking. `PrePostPipelineEncoder(AbsEncoder)` supports dense-only
+embedding evaluation; BM25/RRF cannot be encoded as independent vectors. The
+runner writes `submission/appsretrieval_results.json` only after MTEB returns
+a completed test result. No result is checked in until the benchmark runs.
+The checked-in requirements use MTEB 2.21.3, which contains `AppsRetrieval`;
+the earlier 1.12.50 pin did not.
