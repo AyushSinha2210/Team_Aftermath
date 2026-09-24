@@ -34,8 +34,11 @@ class HybridSearchModel:
             doc_id = str(row["id"])
             if doc_id in documents:
                 raise ValueError(f"Duplicate corpus ID: {doc_id}")
+            body = row.get("body") or row.get("text")
+            if not isinstance(body, str) or not body:
+                raise ValueError(f"Corpus document {doc_id} has no code text")
             documents[doc_id] = "\n".join(
-                str(row[key]) for key in ("title", "body") if row.get(key)
+                text for text in (row.get("title"), body) if text
             )
         self.pipeline = HybridPipeline(documents, encoder=self.encoder)
 

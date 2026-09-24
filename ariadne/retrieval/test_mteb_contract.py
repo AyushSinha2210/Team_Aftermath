@@ -51,7 +51,7 @@ def test_hybrid_search_protocol_returns_mteb_scores() -> None:
     model = HybridSearchModel(encoder=tracked_encode)
     assert isinstance(model, SearchProtocol)
     model.index(
-        [{"id": "a", "body": "binary_search"}, {"id": "b", "body": "quick sort"}],
+        [{"id": "a", "text": "binary_search"}, {"id": "b", "text": "quick sort"}],
         task_metadata=None,
         hf_split="test",
         hf_subset="default",
@@ -69,6 +69,7 @@ def test_hybrid_search_protocol_returns_mteb_scores() -> None:
     )
     assert list(scores) == ["q", "q2"]
     assert list(scores["q"])[0] == "a"
+    assert model.pipeline.corpus["a"] == "binary_search"
     assert all(isinstance(score, float) for score in scores["q"].values())
     assert calls == [2, 2]
 
