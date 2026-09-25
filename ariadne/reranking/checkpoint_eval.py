@@ -149,6 +149,15 @@ def _print_calibration_diagnostic(
 		f"  candidate_ids={[str(candidate['id']) for candidate in reranked_candidates]!r}",
 		flush=True,
 	)
+	print(f"  raw_rerank_scores={raw_scores!r}", flush=True)
+	print(
+		"  calibration_result="
+		f"{{'confidence_variance': {calibration_result['confidence_variance']!r}, "
+		f"'should_abstain': {calibration_result['should_abstain']!r}, "
+		f"'top_candidate_id': "
+		f"{None if top_candidate is None else str(top_candidate['id'])!r}}}",
+		flush=True,
+	)
 
 
 def _print_fusion_rank_diagnostic(
@@ -156,7 +165,7 @@ def _print_fusion_rank_diagnostic(
 	config_a_ids: Sequence[Sequence[str]],
 	config_b_ids: Sequence[Sequence[str]],
 	qrels: Dict[str, Set[str]],
-	 hybrid_pipeline: HybridPipeline,
+	hybrid_pipeline: HybridPipeline,
 ) -> None:
 	"""Prints dense-versus-fused relevant-document ranks and RRF settings."""
 	print("\nConfig B fusion diagnostic", flush=True)
@@ -194,15 +203,6 @@ def _print_fusion_rank_diagnostic(
 		"  average_rank_delta_B_minus_A="
 		f"{float(np.mean(demotions)) if demotions else None!r} "
 		f"(n={len(demotions)})",
-		flush=True,
-	)
-	print(f"  raw_rerank_scores={raw_scores!r}", flush=True)
-	print(
-		"  calibration_result="
-		f"{{'confidence_variance': {calibration_result['confidence_variance']!r}, "
-		f"'should_abstain': {calibration_result['should_abstain']!r}, "
-		f"'top_candidate_id': "
-		f"{None if top_candidate is None else str(top_candidate['id'])!r}}}",
 		flush=True,
 	)
 
@@ -248,10 +248,9 @@ def evaluate_checkpoint(
 		for candidates in hybrid_rankings
 	]
 	config_b_metrics = _evaluate_ranked_orders(config_b_ids, query_ids, qrels)
-	if verbose:
-		_print_fusion_rank_diagnostic(
-			query_ids, config_a_ids, config_b_ids, qrels, hybrid_pipeline
-		)
+	_print_fusion_rank_diagnostic(
+		query_ids, config_a_ids, config_b_ids, qrels, hybrid_pipeline
+	)
 
 	config_c_ids: List[List[str]] = []
 	config_c_query_ids: List[str] = []

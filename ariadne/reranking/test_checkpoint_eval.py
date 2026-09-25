@@ -27,6 +27,7 @@ def test_synthetic_checkpoint_evaluation_reports_four_configs(monkeypatch) -> No
 	class FakeHybridPipeline:
 		def __init__(self, corpus):
 			assert corpus == {"c1": "one", "c2": "two", "c3": "unrelated"}
+			self.config = {"dense_weight": 0.5, "sparse_weight": 0.5, "rrf_k": 60}
 
 		def retrieve(self, query: str, k: int = 50):
 			ordered_ids = ["c1", "c2", "c3"] if query == "find one" else ["c2", "c1", "c3"]
