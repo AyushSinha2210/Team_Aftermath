@@ -7,10 +7,9 @@ calibrates confidence to flag low-confidence rankings. Consumes output from Pers
 retrieval pipeline (once available); produces output for Person 4's demo attribution
 panel and ablation table.
 
-**Status as of this handoff: functionally complete and tested. Config B (fusion)
-integration still blocked on Person 2. Real fine-tuned checkpoint still blocked on
-Person 1 — all numbers below were measured on the untrained base embedder
-(all-MiniLM-L6-v2), not the final model.**
+**Status as of this handoff: functionally complete and tested. Real fine-tuned
+checkpoint still blocked on Person 1 — all numbers below were measured on the
+untrained base embedder (all-MiniLM-L6-v2), not the final model.**
 
 ## 2. Function Signatures
 
@@ -108,16 +107,13 @@ architecture diagram's attribution requirement.
 4. **All numbers above are on the untrained base model** (`all-MiniLM-L6-v2`), not
    Person 1's fine-tuned checkpoint (checkpoint files not yet available in the repo).
    Results may look different, possibly quite different, once that's resolved.
-5. **Config B (dense+BM25 fusion) has never been tested against this reranker** —
-   `retrieval/pipeline.py` was still a stub as of this handoff.
 
 ## 5. What to Expect From This Module for the Demo
 
-Given finding #1, the demo's ablation table should currently show Config A as the
-current leader among evaluated configurations; final decision pending Config B and the
-fine-tuned checkpoint, with Config C included as a measured (worse) comparison point
-rather than the headline result — that's a legitimate, honest ablation finding, not
-  a failure to hide.
+Given finding #1, Config A is the confirmed leading configuration across all four
+evaluated approaches (dense alone, fusion, dense+rerank, fusion+rerank) on the full
+500-query validation split. This remains provisional pending only Person 1's real
+fine-tuned checkpoint.
 
 If Person 3 later re-runs the checkpoint eval with the real checkpoint and/or real
 fusion and gets a different result, this card will be updated and Person 4 will be
