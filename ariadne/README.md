@@ -108,3 +108,7 @@ runner writes `submission/appsretrieval_results.json` only after MTEB returns
 a completed test result. No result is checked in until the benchmark runs.
 The checked-in requirements use MTEB 2.21.3, which contains `AppsRetrieval`;
 the earlier 1.12.50 pin did not.
+
+The checked-in result is a measured pretrained hybrid baseline (NDCG@10
+`0.06452` on the official test split), not a fine-tuned or reranked final
+submission. See `submission/release_notes.md` for the exact run context.
