@@ -11,6 +11,7 @@ venv/
 Thumbs.db
 *.pdf
 /WorkDone.pdf
+!WorkDone.pdf
 ariadne/data/raw/*
 !ariadne/data/raw/.gitkeep
 ariadne/finetuning/checkpoints/*
