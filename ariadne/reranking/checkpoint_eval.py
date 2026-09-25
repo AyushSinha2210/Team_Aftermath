@@ -177,6 +177,9 @@ def _print_fusion_rank_diagnostic(
 		flush=True,
 	)
 	demotions: List[int] = []
+	shared_query_ids: List[str] = []
+	shared_dense_ids: List[Sequence[str]] = []
+	shared_fused_ids: List[Sequence[str]] = []
 	for query_id, dense_ids, fused_ids in zip(query_ids, config_a_ids, config_b_ids):
 		relevant_ids = {str(candidate_id) for candidate_id in qrels.get(str(query_id), set())}
 		dense_ranks = [
@@ -193,6 +196,10 @@ def _print_fusion_rank_diagnostic(
 		best_fused_rank = min(fused_ranks) if fused_ranks else None
 		if best_dense_rank is not None and best_fused_rank is not None:
 			demotions.append(best_fused_rank - best_dense_rank)
+		if best_fused_rank is not None:
+			shared_query_ids.append(str(query_id))
+			shared_dense_ids.append(dense_ids)
+			shared_fused_ids.append(fused_ids)
 		print(
 			f"  query_id={str(query_id)!r}: "
 			f"Config A rank={best_dense_rank!r}, Config B rank={best_fused_rank!r}, "
@@ -203,6 +210,20 @@ def _print_fusion_rank_diagnostic(
 		"  average_rank_delta_B_minus_A="
 		f"{float(np.mean(demotions)) if demotions else None!r} "
 		f"(n={len(demotions)})",
+		flush=True,
+	)
+	shared_dense_metrics = _evaluate_ranked_orders(
+		shared_dense_ids, shared_query_ids, qrels
+	)
+	shared_fused_metrics = _evaluate_ranked_orders(
+		shared_fused_ids, shared_query_ids, qrels
+	)
+	print(
+		f"  shared_candidate_subset_metrics (n={len(shared_query_ids)}): "
+		f"Config A ndcg@10={shared_dense_metrics['ndcg@10']:.4f}, "
+		f"mrr@10={shared_dense_metrics['mrr@10']:.4f}; "
+		f"Config B ndcg@10={shared_fused_metrics['ndcg@10']:.4f}, "
+		f"mrr@10={shared_fused_metrics['mrr@10']:.4f}",
 		flush=True,
 	)
 
