@@ -31,10 +31,17 @@ class HybridPipeline:
         self.dense.index(self.corpus)
         self.sparse.index(self.corpus)
 
-    def retrieve(self, query: str, k: int = 50) -> list[dict[str, object]]:
+    def retrieve(
+        self, query: str, k: int = 50, *, dense_vector: np.ndarray | None = None
+    ) -> list[dict[str, object]]:
         if k <= 0:
             return []
-        dense = self.dense.retrieve(query, max(k, int(self.config["dense_top_k"])))
+        dense_k = max(k, int(self.config["dense_top_k"]))
+        dense = (
+            self.dense.retrieve(query, dense_k)
+            if dense_vector is None
+            else self.dense.retrieve_vector(dense_vector, dense_k)
+        )
         sparse = self.sparse.retrieve(query, max(k, int(self.config["sparse_top_k"])))
         fused = reciprocal_rank_fusion(
             [dense, sparse],
