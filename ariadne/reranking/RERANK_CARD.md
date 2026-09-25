@@ -71,22 +71,36 @@ architecture diagram's attribution requirement.
 
 ## 4. Known Findings & Limitations (read before building on this)
 
-1. Reranking currently underperforms on measured NDCG/MRR/Recall@1, but a targeted
-  diagnostic clarifies why. Full 500-query valid split, untrained base embedder:
-  Config A (dense alone) NDCG@10 = 0.6090, Config C (dense + rerank) NDCG@10 = 0.4687.
-  On a 5-query diagnostic sample restricted to queries where the relevant document was
-  present in the reranked top-20 pool, reranking IMPROVED top-10 placement
-  (original top-10 fraction 66.67% -> reranked top-10 fraction 100.00%), yet recall@1
-  across the same sample dropped to 0.0000. This indicates the cross-encoder correctly
-  recognizes coarse relevance (pulling relevant candidates into the top-10) but fails
-  at fine-grained top-1 discrimination between similar code candidates — consistent
-  with known cross-encoder failure modes on algorithmically similar code (e.g.
-  distinguishing binary search from a similar search variant sharing vocabulary).
-  Candidate-membership integrity between pre- and post-rerank pools was verified via
-  assertion (set equality) across all diagnostic queries with zero failures, ruling out
-  a data-alignment bug as the cause. **Interim recommendation: Config A (no reranking)**
-  until this is re-tested with the real fine-tuned checkpoint and/or real fusion, since
-  a stronger base retriever may change the candidate pool's composition and difficulty.
+1. Full 500-query valid split, untrained base embedder, with real fusion now available:
+
+  | Config | NDCG@10 | MRR@10 | Recall@1 |
+  |---|---|---|---|
+  | A: dense alone | 0.6090 | 0.5790 | 0.5220 |
+  | B: dense+BM25 fusion | 0.5614 | 0.5250 | 0.4520 |
+  | C: dense alone + rerank | 0.4687 | 0.4106 | 0.3120 |
+  | D: fusion + rerank | 0.4503 | 0.3848 | 0.2760 |
+
+  Config A (dense retrieval alone) is the strongest configuration on every metric measured,
+  confirmed on a fair like-for-like subset as well (n=411 shared-reachable queries:
+  Config A NDCG@10=0.7408 vs Config B NDCG@10=0.6829 -- not a pool-size artifact).
+
+  Fusion (Config B) underperforms dense alone for two distinct reasons: (1) BM25 ranks
+  the relevant document far worse than dense on many queries (observed BM25 ranks as
+  poor as 419, dragging down the 50/50 RRF blend even when dense alone was already
+  excellent), and (2) 17.8% of queries (89/500) had their relevant document completely
+  absent from the fused top-50 candidate window -- a coverage gap, not a ranking-quality
+  gap, worth raising with the fusion owner as a possible top_k tuning question.
+
+  Reranking (Configs C, D) reduces every ranking metric at full scale, including
+  top-10 placement (92.63% -> 86.32% on a 380-query diagnostic subset) -- an earlier
+  5-query preview suggested reranking might improve top-10 placement while only hurting
+  top-1 precision; that did NOT hold up at full scale and is retracted here. Reranking
+  underperforms across the board on this base embedder + generic cross-encoder
+  combination.
+
+  CURRENT RECOMMENDATION: Config A (dense retrieval alone, no fusion, no reranking).
+  This remains provisional pending Person 1's real fine-tuned checkpoint -- all numbers
+  above use the untrained base embedder (all-MiniLM-L6-v2).
 2. **Abstention is a diagnostic signal only — not yet wired to change ranking output.**
   The calibration heuristic flagged 44% of queries in the full run as low-confidence, but abstention was not connected to ranking fallback and therefore had no effect on the reported metrics.
 3. **`calibration_threshold=0.01`** was derived from a 5-query manual inspection, not
