@@ -23,6 +23,7 @@ from ariadne.eval.metrics import evaluate_ranking
 from ariadne.finetuning.embedder import encode
 from ariadne.reranking.calibration import calibrate
 from ariadne.reranking.cross_encoder import rerank
+from ariadne.retrieval.pipeline import HybridPipeline
 
 
 CONFIG_B_STATUS = (
@@ -134,6 +135,7 @@ def _print_calibration_diagnostic(
 	query_id: str,
 	reranked_candidates: Sequence[Dict[str, Any]],
 	calibration_result: Dict[str, Any],
+	config_name: str = "Config C",
 ) -> None:
 	"""Prints the exact result returned by calibrate() without recomputing it."""
 	raw_scores = [
@@ -142,7 +144,7 @@ def _print_calibration_diagnostic(
 		if "rerank_score" in candidate
 	]
 	top_candidate = calibration_result.get("top_candidate")
-	print(f"\nConfig C diagnostic query_id={query_id!r}", flush=True)
+	print(f"\n{config_name} diagnostic query_id={query_id!r}", flush=True)
 	print(
 		f"  candidate_ids={[str(candidate['id']) for candidate in reranked_candidates]!r}",
 		flush=True,
@@ -167,7 +169,7 @@ def evaluate_checkpoint(
 	config: Dict[str, Any] | None = None,
 	verbose: bool = False,
 ) -> Dict[str, Any]:
-	"""Evaluates dense Config A and reranked/calibrated Config C."""
+	"""Evaluates dense, hybrid, and reranked/calibrated configurations."""
 	if config is None:
 		from ariadne.finetuning.validate import load_config
 
@@ -184,6 +186,21 @@ def evaluate_checkpoint(
 
 	config_a_ids = [[candidate["id"] for candidate in candidates] for candidates in all_dense_candidates]
 	config_a_metrics = _evaluate_ranked_orders(config_a_ids, query_ids, qrels)
+
+	hybrid_corpus = {
+		str(corpus_id): str(code)
+		for corpus_id, code in zip(corpus_ids, corpus_codes)
+	}
+	hybrid_pipeline = HybridPipeline(hybrid_corpus)
+	hybrid_rankings = [
+		hybrid_pipeline.retrieve(query, k=50)
+		for query in queries
+	]
+	config_b_ids = [
+		[str(candidate["id"]) for candidate in candidates]
+		for candidates in hybrid_rankings
+	]
+	config_b_metrics = _evaluate_ranked_orders(config_b_ids, query_ids, qrels)
 
 	config_c_ids: List[List[str]] = []
 	config_c_query_ids: List[str] = []
@@ -242,6 +259,36 @@ def evaluate_checkpoint(
 
 	config_c_metrics = _evaluate_ranked_orders(config_c_ids, config_c_query_ids, qrels)
 	query_count = len(config_c_query_ids)
+
+	config_d_ids: List[List[str]] = []
+	config_d_query_ids: List[str] = []
+	config_d_abstentions = 0
+	for query_id, query, candidates in tqdm(
+		list(zip(query_ids, queries, hybrid_rankings)),
+		desc="Evaluating Config D",
+		unit="query",
+	):
+		try:
+			reranked_candidates = rerank(query, candidates)
+			calibration_result = calibrate(reranked_candidates)
+			if verbose:
+				_print_calibration_diagnostic(
+					str(query_id), reranked_candidates, calibration_result, "Config D"
+				)
+			config_d_abstentions += int(calibration_result["should_abstain"])
+			config_d_ids.append([candidate["id"] for candidate in reranked_candidates])
+			config_d_query_ids.append(str(query_id))
+		except Exception as error:
+			print(
+				f"\nERROR evaluating Config D query_id={query_id!r}: {error!r}",
+				file=sys.stderr,
+				flush=True,
+			)
+			traceback.print_exc(file=sys.stderr)
+			print("Continuing with the next query.", file=sys.stderr, flush=True)
+
+	config_d_metrics = _evaluate_ranked_orders(config_d_ids, config_d_query_ids, qrels)
+	config_d_query_count = len(config_d_query_ids)
 	pool_diagnostic = {
 		"queries_with_relevant_in_rerank_pool": pool_hit_query_count,
 		"reranked_top10_fraction": (
@@ -272,7 +319,22 @@ def evaluate_checkpoint(
 			},
 			"pool_diagnostic": pool_diagnostic,
 		},
-		"config_b": {"status": CONFIG_B_STATUS},
+		"config_b": {
+			"name": "Config B (dense + BM25 fusion)",
+			"metrics": config_b_metrics,
+		},
+		"config_d": {
+			"name": "Config D (dense + BM25 fusion + cross-encoder reranking + calibration)",
+			"metrics": config_d_metrics,
+			"calibration": {
+				"abstention_count": config_d_abstentions,
+				"abstention_rate": (
+					config_d_abstentions / config_d_query_count
+					if config_d_query_count
+					else 0.0
+				),
+			},
+		},
 	}
 
 
@@ -316,23 +378,29 @@ def main(limit: int | None = None, verbose: bool = False) -> Path:
 	with open(report_path, "w", encoding="utf-8") as file:
 		json.dump(report_payload, file, indent=2)
 
-	config_a_ndcg = report["config_a"]["metrics"]["ndcg@10"]
-	config_c_ndcg = report["config_c"]["metrics"]["ndcg@10"]
-	winner = "Config C" if config_c_ndcg > config_a_ndcg else "Config A"
+	config_ndcg = {
+		"Config A": report["config_a"]["metrics"]["ndcg@10"],
+		"Config B": report["config_b"]["metrics"]["ndcg@10"],
+		"Config C": report["config_c"]["metrics"]["ndcg@10"],
+		"Config D": report["config_d"]["metrics"]["ndcg@10"],
+	}
+	winner = max(config_ndcg, key=config_ndcg.get)
 	print("=" * 90, flush=True)
 	print("ARIADNE DAY 4-5 CHECKPOINT EVALUATION", flush=True)
 	print("=" * 90, flush=True)
-	print(CONFIG_B_STATUS, flush=True)
-	print(f"{'Metric':<14} | {'Config A':>12} | {'Config C':>12}", flush=True)
-	print("-" * 45, flush=True)
+	print(f"{'Metric':<14} | {'Config A':>12} | {'Config B':>12} | {'Config C':>12} | {'Config D':>12}", flush=True)
+	print("-" * 75, flush=True)
 	for metric in ["ndcg@10", "mrr@10", "recall@1", "recall@5", "recall@10"]:
 		print(
 			f"{metric:<14} | {report['config_a']['metrics'][metric]:>12.4f} | "
-			f"{report['config_c']['metrics'][metric]:>12.4f}",
+			f"{report['config_b']['metrics'][metric]:>12.4f} | "
+			f"{report['config_c']['metrics'][metric]:>12.4f} | "
+			f"{report['config_d']['metrics'][metric]:>12.4f}",
 			flush=True,
 		)
-	print(f"CURRENT WINNER (Config B pending): {winner}", flush=True)
+	print(f"CURRENT WINNER: {winner}", flush=True)
 	print(f"Config C abstention rate: {report['config_c']['calibration']['abstention_rate']:.2%}", flush=True)
+	print(f"Config D abstention rate: {report['config_d']['calibration']['abstention_rate']:.2%}", flush=True)
 	pool_diagnostic = report["config_c"]["pool_diagnostic"]
 	print(
 		"Relevant-in-top-20 diagnostic: "
