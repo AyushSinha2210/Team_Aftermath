@@ -149,6 +149,53 @@ def _print_calibration_diagnostic(
 		f"  candidate_ids={[str(candidate['id']) for candidate in reranked_candidates]!r}",
 		flush=True,
 	)
+
+
+def _print_fusion_rank_diagnostic(
+	query_ids: Sequence[str],
+	config_a_ids: Sequence[Sequence[str]],
+	config_b_ids: Sequence[Sequence[str]],
+	qrels: Dict[str, Set[str]],
+	 hybrid_pipeline: HybridPipeline,
+) -> None:
+	"""Prints dense-versus-fused relevant-document ranks and RRF settings."""
+	print("\nConfig B fusion diagnostic", flush=True)
+	print(
+		"  rrf_config="
+		f"{{'dense_weight': {hybrid_pipeline.config['dense_weight']!r}, "
+		f"'sparse_weight': {hybrid_pipeline.config['sparse_weight']!r}, "
+		f"'rrf_k': {hybrid_pipeline.config['rrf_k']!r}}}",
+		flush=True,
+	)
+	demotions: List[int] = []
+	for query_id, dense_ids, fused_ids in zip(query_ids, config_a_ids, config_b_ids):
+		relevant_ids = {str(candidate_id) for candidate_id in qrels.get(str(query_id), set())}
+		dense_ranks = [
+			dense_ids.index(candidate_id) + 1
+			for candidate_id in relevant_ids
+			if candidate_id in dense_ids
+		]
+		fused_ranks = [
+			fused_ids.index(candidate_id) + 1
+			for candidate_id in relevant_ids
+			if candidate_id in fused_ids
+		]
+		best_dense_rank = min(dense_ranks) if dense_ranks else None
+		best_fused_rank = min(fused_ranks) if fused_ranks else None
+		if best_dense_rank is not None and best_fused_rank is not None:
+			demotions.append(best_fused_rank - best_dense_rank)
+		print(
+			f"  query_id={str(query_id)!r}: "
+			f"Config A rank={best_dense_rank!r}, Config B rank={best_fused_rank!r}, "
+			f"delta={None if best_dense_rank is None or best_fused_rank is None else best_fused_rank - best_dense_rank!r}",
+			flush=True,
+		)
+	print(
+		"  average_rank_delta_B_minus_A="
+		f"{float(np.mean(demotions)) if demotions else None!r} "
+		f"(n={len(demotions)})",
+		flush=True,
+	)
 	print(f"  raw_rerank_scores={raw_scores!r}", flush=True)
 	print(
 		"  calibration_result="
@@ -201,6 +248,10 @@ def evaluate_checkpoint(
 		for candidates in hybrid_rankings
 	]
 	config_b_metrics = _evaluate_ranked_orders(config_b_ids, query_ids, qrels)
+	if verbose:
+		_print_fusion_rank_diagnostic(
+			query_ids, config_a_ids, config_b_ids, qrels, hybrid_pipeline
+		)
 
 	config_c_ids: List[List[str]] = []
 	config_c_query_ids: List[str] = []
