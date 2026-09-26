@@ -6,6 +6,9 @@ data/processed/*
 !data/processed/.gitkeep
 finetuning/checkpoints/*
 !finetuning/checkpoints/.gitkeep
+!finetuning/checkpoints/best_biencoder
+!finetuning/checkpoints/best_biencoder/**
+finetuning/checkpoints/*.zip
 
 # Evaluation outputs and logs
 eval/results/*

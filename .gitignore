@@ -16,5 +16,8 @@ ariadne/data/raw/*
 !ariadne/data/raw/.gitkeep
 ariadne/finetuning/checkpoints/*
 !ariadne/finetuning/checkpoints/.gitkeep
+!ariadne/finetuning/checkpoints/best_biencoder
+!ariadne/finetuning/checkpoints/best_biencoder/**
+ariadne/finetuning/checkpoints/*.zip
 ariadne/eval/results/*
 !ariadne/eval/results/.gitkeep
