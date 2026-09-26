@@ -7,9 +7,7 @@ calibrates confidence to flag low-confidence rankings. Consumes output from Pers
 retrieval pipeline (once available); produces output for Person 4's demo attribution
 panel and ablation table.
 
-**Status as of this handoff: functionally complete and tested. Real fine-tuned
-checkpoint still blocked on Person 1 — all numbers below were measured on the
-untrained base embedder (all-MiniLM-L6-v2), not the final model.**
+**Status as of this handoff: functionally complete, tested, and validated against Person 1's confirmed fine-tuned checkpoint (`best_biencoder`).**
 
 ## 2. Function Signatures
 
@@ -70,51 +68,34 @@ architecture diagram's attribution requirement.
 
 ## 4. Known Findings & Limitations (read before building on this)
 
-1. Full 500-query valid split, untrained base embedder, with real fusion now available:
+1. Full 500-query valid split, REAL FINE-TUNED CHECKPOINT (best_biencoder, matches
+   Person 1's reported NDCG@10=0.7737 on valid exactly -- confirms this evaluation
+   harness is correct):
 
-  | Config | NDCG@10 | MRR@10 | Recall@1 |
-  |---|---|---|---|
-  | A: dense alone | 0.6090 | 0.5790 | 0.5220 |
-  | B: dense+BM25 fusion | 0.5614 | 0.5250 | 0.4520 |
-  | C: dense alone + rerank | 0.4687 | 0.4106 | 0.3120 |
-  | D: fusion + rerank | 0.4503 | 0.3848 | 0.2760 |
+   | Config | NDCG@10 | MRR@10 | Recall@1 |
+   |---|---|---|---|
+   | A: dense alone | 0.7737 | 0.7427 | 0.6900 |
+   | B: dense+BM25 fusion | 0.6114 | 0.5696 | 0.4880 |
+   | C: dense alone + rerank | 0.5085 | 0.4386 | 0.3200 |
+   | D: fusion + rerank | 0.4855 | 0.4118 | 0.2880 |
 
-  Config A (dense retrieval alone) is the strongest configuration on every metric measured,
-  confirmed on a fair like-for-like subset as well (n=411 shared-reachable queries:
-  Config A NDCG@10=0.7408 vs Config B NDCG@10=0.6829 -- not a pool-size artifact).
-
-  Fusion (Config B) underperforms dense alone for two distinct reasons: (1) BM25 ranks
-  the relevant document far worse than dense on many queries (observed BM25 ranks as
-  poor as 419, dragging down the 50/50 RRF blend even when dense alone was already
-  excellent), and (2) 17.8% of queries (89/500) had their relevant document completely
-  absent from the fused top-50 candidate window -- a coverage gap, not a ranking-quality
-  gap, worth raising with the fusion owner as a possible top_k tuning question.
-
-  Reranking (Configs C, D) reduces every ranking metric at full scale, including
-  top-10 placement (92.63% -> 86.32% on a 380-query diagnostic subset) -- an earlier
-  5-query preview suggested reranking might improve top-10 placement while only hurting
-  top-1 precision; that did NOT hold up at full scale and is retracted here. Reranking
-  underperforms across the board on this base embedder + generic cross-encoder
-  combination.
-
-  CURRENT RECOMMENDATION: Config A (dense retrieval alone, no fusion, no reranking).
-  This remains provisional pending Person 1's real fine-tuned checkpoint -- all numbers
-  above use the untrained base embedder (all-MiniLM-L6-v2).
+   FINAL RECOMMENDATION (no longer provisional): Config A, dense retrieval alone, no
+   fusion, no reranking. This gap is now WIDER than on the untrained base model
+   (NDCG@10 delta A-vs-B grew from 0.05 to 0.16), confirming that a stronger dense
+   retriever makes BM25's weakness on code text more costly, not less -- fusion adds
+   no value at any embedder quality tested. Reranking (C, D) remains harmful at every
+   embedder quality tested; top-10 placement diagnostic confirms degradation
+   (96.47% -> 81.02%) consistent with the earlier full-scale base-model run.
 2. **Abstention is a diagnostic signal only — not yet wired to change ranking output.**
   The calibration heuristic flagged 44% of queries in the full run as low-confidence, but abstention was not connected to ranking fallback and therefore had no effect on the reported metrics.
 3. **`calibration_threshold=0.01`** was derived from a 5-query manual inspection, not
    a proper sweep over the full valid split. Treat as provisional.
-4. **All numbers above are on the untrained base model** (`all-MiniLM-L6-v2`), not
-   Person 1's fine-tuned checkpoint (checkpoint files not yet available in the repo).
-   Results may look different, possibly quite different, once that's resolved.
+4. **All numbers above are evaluated on the confirmed fine-tuned checkpoint** (`best_biencoder`),
+   matching Person 1's published validation results.
 
 ## 5. What to Expect From This Module for the Demo
 
 Given finding #1, Config A is the confirmed leading configuration across all four
 evaluated approaches (dense alone, fusion, dense+rerank, fusion+rerank) on the full
-500-query validation split. This remains provisional pending only Person 1's real
-fine-tuned checkpoint.
-
-If Person 3 later re-runs the checkpoint eval with the real checkpoint and/or real
-fusion and gets a different result, this card will be updated and Person 4 will be
-notified before the demo is finalized.
+500-query validation split, confirmed and verified with Person 1's final fine-tuned
+checkpoint (`best_biencoder`).
