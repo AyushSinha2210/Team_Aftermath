@@ -47,3 +47,22 @@ bash data/download.sh
 ```
 
 Refer to [`ariadne/README.md`](ariadne/README.md) and [`ariadne/docs/architecture.md`](ariadne/docs/architecture.md) for detailed documentation.
+
+---
+
+## Running the Demo
+
+Ariadne includes a lightweight Streamlit interactive demo application showcasing semantic code search with the validated **Config A** pipeline (dense retrieval alone, no fusion, no reranking):
+
+1. **Install dependencies**:
+   ```bash
+   pip install -r ariadne/requirements.txt
+   ```
+
+2. **Launch the application**:
+   ```bash
+   streamlit run ariadne/versioning/demo/app.py
+   ```
+
+> **Note on `PYTHONPATH`:** `app.py` includes an internal `sys.path` bootstrapping routine that automatically detects and inserts the repository root (`Team_Aftermath`) and package root (`ariadne`) into `sys.path` before imports execute. You can run `streamlit run ariadne/versioning/demo/app.py` directly from the repository root without manually setting `PYTHONPATH`.
+
