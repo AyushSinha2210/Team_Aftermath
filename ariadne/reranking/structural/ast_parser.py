@@ -74,7 +74,9 @@ def _direct_calls(body: Node, source: bytes) -> List[str]:
 
 def parse_js_file(file_path: str) -> List[dict[str, Any]]:
 	"""Return JavaScript functions and calls made directly in each body."""
-	source = Path(file_path).read_bytes()
+	path_obj = Path(file_path)
+	file_name = path_obj.name
+	source = path_obj.read_bytes()
 	parser = Parser()
 	parser.set_language(get_language("javascript"))
 	tree = parser.parse(source)
@@ -84,9 +86,12 @@ def parse_js_file(file_path: str) -> List[dict[str, Any]]:
 		if _is_function_node(node):
 			body = node.child_by_field_name("body")
 			calls = _direct_calls(body, source) if body is not None else []
+			bare_name = _function_name(node, source)
 			functions.append(
 				{
-					"name": _function_name(node, source),
+					"name": f"{file_name}:{bare_name}",
+					"short_name": bare_name,
+					"file": file_name,
 					"start_line": node.start_point[0] + 1,
 					"end_line": node.end_point[0] + 1,
 					"calls": calls,
@@ -96,4 +101,13 @@ def parse_js_file(file_path: str) -> List[dict[str, Any]]:
 			visit(child)
 
 	visit(tree.root_node)
+	return functions
+
+
+def parse_repo(repo_dir: str, pattern: str = "*.js") -> List[dict[str, Any]]:
+	"""Walk a directory, parse all matching JavaScript files, and return combined functions."""
+	repo_path = Path(repo_dir)
+	functions: List[dict[str, Any]] = []
+	for file_path in sorted(repo_path.rglob(pattern)):
+		functions.extend(parse_js_file(str(file_path)))
 	return functions
