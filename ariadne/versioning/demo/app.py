@@ -2,15 +2,24 @@
 
 Demonstrates the final locked Config A pipeline: Dense retrieval alone
 (no BM25 fusion, no cross-encoder reranking) per RERANK_CARD.md recommendation.
+Built with Streamlit for reliable, lightweight UI rendering.
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import gradio as gr
+# Ensure ariadne is on sys.path
+_repo_root = Path(__file__).resolve().parent.parent.parent
+_workspace_root = _repo_root.parent
+for p in [str(_workspace_root), str(_repo_root)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 import numpy as np
+import streamlit as st
 import yaml
 
 from ariadne.finetuning.embedder import encode
@@ -134,20 +143,15 @@ DEMO_CORPUS: List[Dict[str, str]] = [
     },
 ]
 
-# Cached embeddings for the demo corpus
-_CORPUS_EMBEDDINGS: Optional[np.ndarray] = None
 
-
+@st.cache_resource(show_spinner="Encoding demo code corpus...")
 def get_corpus_embeddings() -> np.ndarray:
-    """Lazily encodes and caches the demo corpus embeddings using the bi-encoder."""
-    global _CORPUS_EMBEDDINGS
-    if _CORPUS_EMBEDDINGS is None:
-        texts = [doc["code"] for doc in DEMO_CORPUS]
-        _CORPUS_EMBEDDINGS = encode(texts)
-    return _CORPUS_EMBEDDINGS
+    """Encodes and caches the demo corpus embeddings using the bi-encoder."""
+    texts = [doc["code"] for doc in DEMO_CORPUS]
+    return encode(texts)
 
 
-def search(query: str, top_k: int = 5) -> str:
+def search(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
     """Performs Config A (dense alone) retrieval against the demo corpus.
 
     Args:
@@ -155,11 +159,11 @@ def search(query: str, top_k: int = 5) -> str:
         top_k: Number of ranked matches to return.
 
     Returns:
-        Formatted Markdown string showing ranked code matches and scores.
+        List of result dictionaries containing rank, id, title, score, and code.
     """
     cleaned_query = query.strip()
     if not cleaned_query:
-        return "⚠️ *Please enter a search query above to find matching code snippets.*"
+        return []
 
     query_embedding = encode([cleaned_query])[0]
     corpus_embeddings = get_corpus_embeddings()
@@ -168,73 +172,80 @@ def search(query: str, top_k: int = 5) -> str:
     cosine_scores = np.dot(corpus_embeddings, query_embedding)
     ranked_indices = np.argsort(cosine_scores)[::-1][:top_k]
 
-    result_blocks = [
-        "### 🏆 Top Matches — Config A (Dense Retrieval Alone)\n",
-        "*Pipeline: bi-encoder semantic search without fusion or cross-encoder reranking.*\n",
-    ]
-
+    results = []
     for rank, idx in enumerate(ranked_indices, start=1):
         doc = DEMO_CORPUS[idx]
         score = float(cosine_scores[idx])
-        result_blocks.append(
-            f"#### **#{rank}** — `{doc['id']}` ({doc['title']}) | **Cosine Score: {score:.4f}**\n"
-            f"```python\n{doc['code']}\n```\n"
+        results.append(
+            {
+                "rank": rank,
+                "id": doc["id"],
+                "title": doc["title"],
+                "score": score,
+                "code": doc["code"],
+            }
         )
+    return results
 
-    return "\n".join(result_blocks)
 
+def main() -> None:
+    """Renders the Streamlit user interface."""
+    st.set_page_config(
+        page_title="Ariadne Code Search Demo",
+        page_icon="🚀",
+        layout="wide",
+    )
 
-def create_app() -> gr.Blocks:
-    """Builds and returns the Gradio UI Blocks application."""
-    config = load_config()
-    demo_cfg = config.get("versioning", {}).get("demo", {})
-    theme_name = demo_cfg.get("theme", "dark")
-    theme = gr.themes.Soft(primary_hue="blue") if theme_name == "dark" else gr.themes.Default()
+    st.title("🚀 Ariadne Code Intelligence Demo")
+    st.caption("**Theme 01: Agentic Code Intelligence** | *PRISM GenAI Hackathon*")
 
-    with gr.Blocks(title="Ariadne Code Search Demo", theme=theme) as app:
-        gr.Markdown(
-            "# 🚀 Ariadne Code Intelligence Demo\n"
-            "**Theme 01: Agentic Code Intelligence** | *PRISM GenAI Hackathon*\n\n"
-            "Powered by the validated **Config A** pipeline: Dense retrieval alone using "
-            "the fine-tuned bi-encoder checkpoint (`best_biencoder`), per `RERANK_CARD.md` findings."
+    st.info(
+        "Powered by the validated **Config A** pipeline: Dense retrieval alone using "
+        "the fine-tuned bi-encoder checkpoint (`best_biencoder`), per `RERANK_CARD.md` findings."
+    )
+
+    # Example query buttons for quick testing
+    st.markdown("##### Quick Examples")
+    example_cols = st.columns(4)
+    examples = [
+        "logarithmic search in an ordered list",
+        "find minimum temperature value",
+        "check if string reads same backwards",
+        "find two numbers that sum to target",
+    ]
+    selected_example = None
+    for col, ex in zip(example_cols, examples):
+        if col.button(ex, use_container_width=True):
+            selected_example = ex
+
+    with st.form("search_form", clear_on_submit=False):
+        default_val = selected_example or ""
+        query = st.text_input(
+            "Enter Natural Language Search Query:",
+            value=default_val,
+            placeholder="e.g. logarithmic search, minimum temperature, palindrome...",
         )
+        submitted = st.form_submit_button("Search Codebase", type="primary")
 
-        with gr.Row():
-            query_input = gr.Textbox(
-                label="Enter Search Query",
-                placeholder="e.g. find minimum temperature, logarithmic search, check palindrome...",
-                lines=2,
-                scale=4,
+    active_query = query if submitted else selected_example
+
+    if active_query and active_query.strip():
+        with st.spinner("Searching with fine-tuned bi-encoder..."):
+            results = search(active_query, top_k=5)
+
+        if not results:
+            st.warning("No matches found.")
+        else:
+            st.markdown(
+                f"### 🏆 Top {len(results)} Ranked Matches (Config A — Dense Alone)"
             )
-            submit_btn = gr.Button("Search", variant="primary", scale=1)
-
-        results_output = gr.Markdown(label="Ranked Results")
-
-        submit_btn.click(fn=search, inputs=[query_input], outputs=[results_output])
-        query_input.submit(fn=search, inputs=[query_input], outputs=[results_output])
-
-        gr.Examples(
-            examples=[
-                ["logarithmic search in an ordered list"],
-                ["find minimum temperature value from space separated integers"],
-                ["check if string reads the same forwards and backwards"],
-                ["sort a list by recursively splitting and merging halves"],
-                ["find two numbers in list that sum to target"],
-                ["traverse a graph level by level from starting node"],
-            ],
-            inputs=[query_input],
-        )
-
-    return app
-
-
-# Module-level app instance constructed on import
-app = create_app()
+            for r in results:
+                with st.expander(
+                    f"#{r['rank']} — {r['title']} (`{r['id']}`) — Cosine Score: {r['score']:.4f}",
+                    expanded=(r["rank"] <= 2),
+                ):
+                    st.code(r["code"], language="python")
 
 
 if __name__ == "__main__":
-    config = load_config()
-    demo_cfg = config.get("versioning", {}).get("demo", {})
-    host = demo_cfg.get("host", "0.0.0.0")
-    port = int(demo_cfg.get("port", 7860))
-    app.launch(server_name=host, server_port=port)
+    main()
