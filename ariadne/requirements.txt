@@ -5,6 +5,7 @@ sentence-transformers==3.0.1
 mteb==2.21.3
 rank-bm25==0.2.2
 datasets==2.19.2
+scipy
 pyyaml==6.0.1
 pytest==8.2.2
 tqdm==4.66.4

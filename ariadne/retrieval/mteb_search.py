@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import numpy as np
-from mteb.models.model_meta import ModelMeta
+try:
+    from mteb.model_meta import ModelMeta
+except ImportError:
+    try:
+        from mteb.models.model_meta import ModelMeta
+    except ImportError:
+        ModelMeta = None
 
 from ariadne.retrieval.dense_retriever import default_encode
 from ariadne.retrieval.pipeline import HybridPipeline
@@ -15,9 +21,19 @@ class HybridSearchModel:
     def __init__(self, encoder: Callable[[list[str]], np.ndarray] = default_encode):
         self.encoder = encoder
         self.pipeline: HybridPipeline | None = None
-        self.mteb_model_meta = ModelMeta.create_empty(
-            {"name": "ariadne/hybrid-rrf", "revision": "local", "framework": ["Sentence Transformers"], "model_type": ["hybrid"]}
-        )
+        self.mteb_model_meta = None
+        if ModelMeta is not None:
+            try:
+                if hasattr(ModelMeta, "create_empty"):
+                    self.mteb_model_meta = ModelMeta.create_empty(
+                        {"name": "ariadne/hybrid-rrf", "revision": "local", "framework": ["Sentence Transformers"], "model_type": ["hybrid"]}
+                    )
+                else:
+                    self.mteb_model_meta = ModelMeta(
+                        name="ariadne/hybrid-rrf", revision="local"
+                    )
+            except Exception:
+                pass
 
     def index(
         self,
