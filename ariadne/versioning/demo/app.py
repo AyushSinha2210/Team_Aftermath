@@ -34,6 +34,13 @@ import streamlit as st
 import yaml
 
 from ariadne.finetuning.embedder import encode
+from ariadne.reranking.structural.ast_parser import parse_repo
+from ariadne.reranking.structural.call_graph import (
+    AmbiguousFunctionNameError,
+    build_call_graph,
+    calls_within_depth,
+    resolve_call_path,
+)
 from ariadne.versioning.dedup import collapse_duplicates, get_dedup_threshold
 from ariadne.versioning.evolutionary_retrieval import rank_across_versions
 from ariadne.versioning.incremental_index import IncrementalIndex
@@ -852,6 +859,175 @@ def render_cross_version_tab() -> None:
                     st.code(texts[vid], language="python")
 
 
+@st.cache_resource(show_spinner="Parsing validator.js repository and building call graph...")
+def get_structural_call_graph() -> Tuple[List[Dict[str, Any]], Any, int]:
+    """Parses real validator.js repo with ast_parser.parse_repo and builds its CallGraph."""
+    validator_src = (
+        _ariadne_dir / "reranking" / "structural" / "external_repos" / "validator_js" / "src"
+    ).resolve()
+    if not validator_src.exists():
+        return [], {}, 0
+
+    js_files = list(validator_src.rglob("*.js"))
+    file_count = len(js_files)
+    functions = parse_repo(str(validator_src))
+    graph = build_call_graph(functions)
+    return functions, graph, file_count
+
+
+def render_structural_tab() -> None:
+    """Renders the Structural Code Analysis tab against real-world validator.js repo."""
+    st.subheader("🌳 Structural Code Analysis (Call Graph & Tree-Sitter)")
+    st.markdown(
+        "Demonstrates **Person C's Tree-Sitter AST parsing & Call Graph resolution** "
+        "against the real-world **`validator.js`** repository (`src/` directory), "
+        "resolving cross-file static function calls and detecting naming ambiguities."
+    )
+
+    functions, graph, file_count = get_structural_call_graph()
+    if not functions:
+        st.error("validator.js repository not found at `ariadne/reranking/structural/external_repos/validator_js/src`.")
+        return
+
+    # Real stats display
+    st.markdown("#### 📊 Repository Structural Stats")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("Functions Parsed", f"{len(functions)} functions")
+    with c2:
+        st.metric("Files Scanned", f"{file_count} JavaScript files")
+    with c3:
+        st.metric("Graph Nodes", f"{len(graph)} qualified nodes")
+
+    st.caption(f"✨ **{len(functions)} functions parsed across {file_count} files in validator.js**")
+
+    st.markdown("---")
+    st.markdown("#### 🔗 Call Path Resolver (`resolve_call_path`)")
+
+    # Pre-verified real query pairs dropdown
+    verified_pairs = [
+        ("isEmail -> assertString", "isEmail", "assertString"),
+        ("isEmail -> merge", "isEmail", "merge"),
+        ("isEmail -> isByteLength", "isEmail", "isByteLength"),
+        ("isURL -> checkHost", "isURL", "checkHost"),
+        ("Custom (Enter your own functions)", "", ""),
+    ]
+
+    selected_pair_label = st.selectbox(
+        "Select a pre-verified call pair or custom entry:",
+        options=[p[0] for p in verified_pairs],
+        index=0,
+    )
+
+    preset_source, preset_target = "", ""
+    for label, src, tgt in verified_pairs:
+        if label == selected_pair_label:
+            preset_source, preset_target = src, tgt
+            break
+
+    if "struct_source" not in st.session_state or selected_pair_label != st.session_state.get("last_selected_pair"):
+        st.session_state["struct_source"] = preset_source
+        st.session_state["struct_target"] = preset_target
+        st.session_state["last_selected_pair"] = selected_pair_label
+
+    # Dedicated button: "Try the ambiguity detector"
+    col_amb1, col_amb2 = st.columns([3, 2])
+    with col_amb2:
+        if st.button("⚡ Try Ambiguity Detector (`isBoolean -> includes`)", help="Demonstrates real name collision across includesArray.js and includesString.js"):
+            st.session_state["struct_source"] = "isBoolean"
+            st.session_state["struct_target"] = "includes"
+
+    with st.form("call_path_form"):
+        col_src, col_tgt, col_depth = st.columns([2, 2, 1])
+        with col_src:
+            source_input = st.text_input("Source Function:", value=st.session_state.get("struct_source", "isEmail"))
+        with col_tgt:
+            target_input = st.text_input("Target Function:", value=st.session_state.get("struct_target", "assertString"))
+        with col_depth:
+            max_depth_input = st.number_input("Max Depth", min_value=1, max_value=5, value=3)
+
+        find_path_submitted = st.form_submit_button("Find Call Path", type="primary")
+
+    if find_path_submitted or (st.session_state.get("struct_source") and st.session_state.get("struct_target") and not selected_pair_label.startswith("Custom")):
+        src = source_input.strip()
+        tgt = target_input.strip()
+
+        if src and tgt:
+            try:
+                path = resolve_call_path(graph, src, tgt, max_depth=int(max_depth_input))
+                if path:
+                    st.success(f"✅ **Call Path Resolved** ({len(path) - 1} hops):")
+                    steps_html = " ➔ ".join(f"`{node}`" for node in path)
+                    st.markdown(f"### {steps_html}")
+
+                    with st.expander("Inspect Path Steps", expanded=True):
+                        for step_num, node in enumerate(path, start=1):
+                            file_part, func_part = node.split(":", 1) if ":" in node else ("", node)
+                            st.markdown(f"**Step {step_num}:** `{node}` in file `{file_part}`")
+                else:
+                    st.warning(f"❌ No call path found from `{src}` to `{tgt}` within depth {max_depth_input}.")
+            except AmbiguousFunctionNameError as exc:
+                st.error("⚠️ **Ambiguous Function Name Collision Detected!**")
+                st.markdown(
+                    f"The bare function name is ambiguous across multiple files in the repository:\n\n"
+                    f"**Error Details:** `{exc}`"
+                )
+                bare_target = tgt
+                candidates = graph.short_to_qualified.get(bare_target, [])
+                if not candidates and tgt in graph.ambiguous_calls:
+                    candidates = graph.ambiguous_calls[tgt]
+
+                if candidates:
+                    st.info("💡 **Disambiguation Options:** Select one of the real qualified function targets below to resolve:")
+                    c_cols = st.columns(len(candidates))
+                    for col_idx, cand in enumerate(candidates):
+                        with c_cols[col_idx]:
+                            st.code(cand)
+                            resolved_qual_path = resolve_call_path(graph, src, cand, max_depth=int(max_depth_input))
+                            if resolved_qual_path:
+                                st.caption(f"Path: {' ➔ '.join(f'`{n}`' for n in resolved_qual_path)}")
+
+    st.markdown("---")
+    st.markdown("#### 🔭 'Calls Within Depth' Explorer")
+    st.caption("Inspect all direct vs transitive functions reachable from a given source module:")
+
+    col_exp_src, col_exp_btn = st.columns([3, 1])
+    with col_exp_src:
+        depth_source = st.text_input("Root Source Function to Explore:", value="isEmail", key="depth_src_input")
+    with col_exp_btn:
+        st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+        explore_btn = st.button("Explore Calls", type="secondary")
+
+    if explore_btn or depth_source:
+        root_func = depth_source.strip()
+        if root_func:
+            try:
+                d1 = calls_within_depth(graph, root_func, max_depth=1)
+                d2 = calls_within_depth(graph, root_func, max_depth=2)
+                transitive = d2 - d1
+
+                c_d1, c_d2 = st.columns(2)
+                with c_d1:
+                    st.markdown(f"##### 🎯 Direct Calls (Depth 1 — {len(d1)} functions)")
+                    st.caption(f"Directly called inside `{root_func}`:")
+                    if d1:
+                        for fn in sorted(list(d1)):
+                            st.markdown(f"- 🔹 `{fn}`")
+                    else:
+                        st.info("No direct calls found.")
+
+                with c_d2:
+                    st.markdown(f"##### 🔄 Transitive Calls (Depth 2 — {len(transitive)} functions)")
+                    st.caption(f"Reachable 2 hops away via direct callees:")
+                    if transitive:
+                        for fn in sorted(list(transitive)):
+                            st.markdown(f"- 🔸 `{fn}` *(transitive)*")
+                    else:
+                        st.info("No additional transitive calls at depth 2.")
+            except AmbiguousFunctionNameError as exc:
+                st.error(f"Cannot explore calls: {exc}")
+
+
 def main() -> None:
     """Main application entry point."""
     st.set_page_config(
@@ -893,10 +1069,11 @@ def main() -> None:
         st.markdown("---")
         st.caption("Ariadne Code Search • Person D Demo")
 
-    tab_search, tab_simulation, tab_cross_version = st.tabs([
+    tab_search, tab_simulation, tab_cross_version, tab_structural = st.tabs([
         "🔍 Semantic Search",
         "⚡ Version Update Simulation (P1 Demo)",
         "🧬 Cross-Version Search (Bonus)",
+        "🌳 Structural Code Analysis (Call Graph)",
     ])
 
     with tab_search:
@@ -907,6 +1084,9 @@ def main() -> None:
 
     with tab_cross_version:
         render_cross_version_tab()
+
+    with tab_structural:
+        render_structural_tab()
 
 
 if __name__ == "__main__":
