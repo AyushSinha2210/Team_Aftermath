@@ -5,6 +5,8 @@ Demonstrates:
    no BM25 fusion, no cross-encoder reranking, per RERANK_CARD.md recommendation.
 2. P1 Incremental Re-indexing Simulation: Live demonstration of content hashing and
    IncrementalIndex updating only changed files (re-embedding 1 vs unchanged 499).
+3. Bonus Cross-Version Search: Evolutionary retrieval and near-duplicate collapsing
+   (`dedup.py` and `evolutionary_retrieval.py`) proving duplicate inflation prevention.
 Built with Streamlit for reliable, lightweight UI rendering.
 """
 
@@ -32,12 +34,122 @@ import streamlit as st
 import yaml
 
 from ariadne.finetuning.embedder import encode
+from ariadne.versioning.dedup import collapse_duplicates, get_dedup_threshold
+from ariadne.versioning.evolutionary_retrieval import rank_across_versions
 from ariadne.versioning.incremental_index import IncrementalIndex
 
 logger = logging.getLogger("ariadne.versioning.demo")
 
 # Measured benchmark baseline for full IncrementalIndex.build() on all 500 valid snippets
 FULL_REBUILD_BENCHMARK_SEC = 53.26
+
+# Realistic multi-version repository scenario with near-duplicates across commits
+MULTI_VERSION_SCENARIO: Dict[str, Dict[str, str]] = {
+    "auth_token:v1.0": {
+        "title": "validate_token (Commit 1: Initial implementation)",
+        "code": (
+            "def validate_token(token, secret_key):\n"
+            "    if not token:\n"
+            "        return False\n"
+            "    payload = decode_jwt(token, secret_key)\n"
+            "    return payload.get('active', False) and payload.get('exp') > time.time()"
+        ),
+    },
+    "auth_token:v1.1": {
+        "title": "validate_token (Commit 2: Type hints & docstring refactor)",
+        "code": (
+            "def validate_token(token: str, secret_key: str) -> bool:\n"
+            "    # Added type annotations and docstring\n"
+            "    if not token:\n"
+            "        return False\n"
+            "    payload = decode_jwt(token, secret_key)\n"
+            "    return bool(payload.get('active', False) and payload.get('exp') > time.time())"
+        ),
+    },
+    "auth_token:v2.0": {
+        "title": "validate_token (Commit 3: Explicit timestamp caching)",
+        "code": (
+            "def validate_token(token: str, secret_key: str) -> bool:\n"
+            "    \"\"\"Validate JWT authentication token expiry and active state.\"\"\"\n"
+            "    if not token:\n"
+            "        return False\n"
+            "    payload = decode_jwt(token, secret_key)\n"
+            "    now = time.time()\n"
+            "    return bool(payload.get('active', False) and payload.get('exp') > now)"
+        ),
+    },
+    "binary_search:v1.0": {
+        "title": "binary_search (Commit 1: Standard while-loop implementation)",
+        "code": (
+            "def binary_search(arr, target):\n"
+            "    lo, hi = 0, len(arr) - 1\n"
+            "    while lo <= hi:\n"
+            "        mid = (lo + hi) // 2\n"
+            "        if arr[mid] == target: return mid\n"
+            "        elif arr[mid] < target: lo = mid + 1\n"
+            "        else: hi = mid - 1\n"
+            "    return -1"
+        ),
+    },
+    "binary_search:v1.2": {
+        "title": "binary_search (Commit 2: Overflow-safe midpoint guard)",
+        "code": (
+            "def binary_search(arr: list[int], target: int) -> int:\n"
+            "    # Refactored binary search with mid calculation guard\n"
+            "    lo, hi = 0, len(arr) - 1\n"
+            "    while lo <= hi:\n"
+            "        mid = lo + (hi - lo) // 2\n"
+            "        if arr[mid] == target: return mid\n"
+            "        if arr[mid] < target: lo = mid + 1\n"
+            "        else: hi = mid - 1\n"
+            "    return -1"
+        ),
+    },
+    "quicksort:v1.0": {
+        "title": "quicksort (Commit 1: List comprehension partitioning)",
+        "code": (
+            "def quicksort(arr):\n"
+            "    if len(arr) <= 1: return arr\n"
+            "    pivot = arr[0]\n"
+            "    left = [x for x in arr if x < pivot]\n"
+            "    right = [x for x in arr if x >= pivot]\n"
+            "    return quicksort(left) + [pivot] + quicksort(right)"
+        ),
+    },
+    "quicksort:v1.1": {
+        "title": "quicksort (Commit 2: Added docstring & list type annotation)",
+        "code": (
+            "def quicksort(arr: list) -> list:\n"
+            "    \"\"\"Recursive quicksort algorithm.\"\"\"\n"
+            "    if len(arr) <= 1: return arr\n"
+            "    pivot = arr[0]\n"
+            "    left = [x for x in arr if x < pivot]\n"
+            "    right = [x for x in arr if x >= pivot]\n"
+            "    return quicksort(left) + [pivot] + quicksort(right)"
+        ),
+    },
+    "db_pool:v1.0": {
+        "title": "get_db_connection (Commit 1: Connection pool allocator)",
+        "code": (
+            "def get_db_connection(config):\n"
+            "    pool = ConnectionPool(minconn=1, maxconn=10, **config)\n"
+            "    return pool.getconn()"
+        ),
+    },
+    "cache_lru:v1.0": {
+        "title": "LRUCache (Commit 1: Ordered dictionary eviction cache)",
+        "code": (
+            "class LRUCache:\n"
+            "    def __init__(self, capacity: int):\n"
+            "        self.capacity = capacity\n"
+            "        self.cache = collections.OrderedDict()\n"
+            "    def get(self, key):\n"
+            "        if key not in self.cache: return -1\n"
+            "        self.cache.move_to_end(key)\n"
+            "        return self.cache[key]"
+        ),
+    },
+}
 
 
 def load_config() -> Dict[str, Any]:
@@ -61,7 +173,6 @@ def _extract_title(record: Dict[str, Any], fallback_id: str) -> str:
 
     query = str(record.get("query") or "").strip()
     if query:
-        # Take the first non-empty line of the query prompt
         for line in query.splitlines():
             cleaned_line = line.strip().replace("$", "").replace("#", "").strip()
             if cleaned_line:
@@ -188,6 +299,29 @@ def get_indexed_corpus() -> Tuple[Dict[str, Dict[str, Any]], IncrementalIndex]:
         index.build(corpus_dict)
 
     return doc_lookup, index
+
+
+@st.cache_resource(show_spinner="Encoding multi-version codebase scenario...")
+def get_multi_version_resources() -> Tuple[Dict[str, str], Dict[str, np.ndarray], Dict[str, Any]]:
+    """Encodes and clusters the multi-version scenario using dedup.py.
+
+    Returns:
+        Tuple containing:
+            - texts: Mapping from doc_id to raw code text.
+            - embeddings: Mapping from doc_id to embedding vector.
+            - dedup_result: Result dict from collapse_duplicates().
+    """
+    doc_ids = list(MULTI_VERSION_SCENARIO.keys())
+    texts = {d: MULTI_VERSION_SCENARIO[d]["code"] for d in doc_ids}
+    text_list = [texts[d] for d in doc_ids]
+
+    emb_matrix = encode(text_list)
+    embeddings = {d: emb_matrix[i] for i, d in enumerate(doc_ids)}
+
+    # Cluster near-duplicates with threshold 0.90
+    dedup_result = collapse_duplicates(doc_ids, emb_matrix, texts, threshold=0.90)
+
+    return texts, embeddings, dedup_result
 
 
 def init_session_state() -> None:
@@ -499,7 +633,6 @@ def render_simulation_tab() -> None:
     if st.session_state.get("last_update_summary"):
         summary = st.session_state["last_update_summary"]
         t_update = st.session_state["last_update_time"]
-        updated_id = st.session_state["last_updated_id"]
 
         st.markdown("---")
         st.markdown("#### 📊 Incremental Re-Indexing Proof Metrics")
@@ -549,6 +682,176 @@ def render_simulation_tab() -> None:
         )
 
 
+def render_cross_version_tab() -> None:
+    """Renders the Cross-Version Search (Bonus) tab demonstrating deduplication and evolutionary retrieval."""
+    st.subheader("🧬 Cross-Version Evolutionary Retrieval & Deduplication (Bonus)")
+    st.markdown(
+        "Demonstrates **Person D's Bonus scope** (`dedup.py` and `evolutionary_retrieval.py`): "
+        "when searching code across multiple git commits, branches, or refactors, standard retrieval "
+        "suffers from **Duplicate Inflation** — minor revisions of the same function crowd out other relevant results. "
+        "Ariadne clusters near-duplicates with cosine similarity thresholding and queries **canonical representatives** "
+        "while maintaining full version lineage."
+    )
+
+    texts, embeddings, dedup_result = get_multi_version_resources()
+    canonical_to_versions = dedup_result["canonical_to_versions"]
+    total_versions = len(texts)
+    num_clusters = dedup_result["num_clusters"]
+    num_collapsed = dedup_result["num_collapsed"]
+
+    # Deduplication summary metrics card
+    st.markdown("#### 📦 Multi-Version Repository Scenario")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Snippet Versions", f"{total_versions} files", help="Total code functions across multiple commits")
+    with col2:
+        st.metric("Deduplicated Clusters", f"{num_clusters} clusters", help="Distinct algorithmic components identified")
+    with col3:
+        st.metric("Duplicates Collapsed", f"{num_collapsed} versions", delta=f"-{(num_collapsed / total_versions) * 100:.0f}% Clutter", delta_color="normal")
+    with col4:
+        st.metric("Dedup Cosine Threshold", "0.90", help="Threshold from config.yaml / dedup.py")
+
+    with st.expander("🔍 View Detected Clusters and Member Commits", expanded=False):
+        for c_idx, (canon, vers) in enumerate(canonical_to_versions.items(), start=1):
+            st.markdown(f"**Cluster {c_idx}: Canonical `{canon}`** ({len(vers)} versions)")
+            v_cols = st.columns(len(vers))
+            for col, v_id in zip(v_cols, vers):
+                with col:
+                    is_canon = (v_id == canon)
+                    badge = "⭐ Canonical" if is_canon else "🔄 Near-Duplicate"
+                    st.caption(f"`{v_id}` ({badge})")
+                    st.code(texts[v_id], language="python")
+
+    st.markdown("---")
+    st.markdown("#### 🔎 Live Cross-Version Search")
+
+    # Quick example buttons
+    st.caption("Click a preset query to observe duplicate inflation prevention live:")
+    ex_cols = st.columns(4)
+    preset_examples = [
+        "JWT token validation and expiry check",
+        "logarithmic binary search with mid index",
+        "recursive quicksort pivot partitioning",
+        "database connection pool acquisition",
+    ]
+    chosen_query = None
+    for col, ex in zip(ex_cols, preset_examples):
+        if col.button(ex, use_container_width=True, key=f"btn_xv_{ex[:10]}"):
+            chosen_query = ex
+
+    with st.form("cross_version_search_form"):
+        default_q = chosen_query or "JWT token validation and expiry check"
+        query_input = st.text_input("Enter Query across Versions:", value=default_q)
+        compare_mode = st.checkbox("Side-by-side comparison: Naive Retrieval vs Ariadne Evolutionary Retrieval", value=True)
+        xv_submitted = st.form_submit_button("Search Across Versions", type="primary")
+
+    active_xv_query = query_input if xv_submitted else default_q
+
+    if active_xv_query and active_xv_query.strip():
+        with st.spinner("Ranking across versions with evolutionary retrieval..."):
+            query_emb = encode([active_xv_query])[0]
+            q_norm = float(np.linalg.norm(query_emb))
+            if q_norm > 0:
+                query_emb = query_emb / q_norm
+
+            # 1. Evolutionary retrieval (Ariadne)
+            ranked_canonicals = rank_across_versions(
+                query=active_xv_query,
+                canonical_to_versions=canonical_to_versions,
+                embeddings=embeddings,
+            )
+
+            # Per-query display selection: within each deduplicated cluster, select the
+            # HIGHEST-SCORING member for the active query, rather than relying solely
+            # on the static pre-computed canonical from collapse_duplicates.
+            ranked_clusters: List[Dict[str, Any]] = []
+            for res in ranked_canonicals:
+                cid = res["canonical_id"]
+                v_list = res["all_versions"]
+                scored_members = [
+                    (v_id, float(np.dot(embeddings[v_id], query_emb)))
+                    for v_id in v_list
+                ]
+                best_vid, best_score = max(scored_members, key=lambda x: x[1])
+
+                ranked_clusters.append({
+                    "display_id": best_vid,
+                    "canonical_id": cid,
+                    "score": best_score,
+                    "canonical_score": res["score"],
+                    "all_versions": v_list,
+                    "version_count": len(v_list),
+                    "member_scores": dict(scored_members),
+                })
+
+            # Sort clusters descending by their highest-scoring member's score
+            ranked_clusters.sort(key=lambda x: x["score"], reverse=True)
+
+            # 2. Naive retrieval (no deduplication) for comparison
+            doc_ids = list(texts.keys())
+            doc_matrix = np.array([embeddings[d] for d in doc_ids], dtype=np.float32)
+            naive_scores = doc_matrix @ query_emb
+            naive_order = np.argsort(naive_scores)[::-1]
+            naive_ranked = [
+                {"id": doc_ids[i], "score": float(naive_scores[i])}
+                for i in naive_order
+            ]
+
+        if compare_mode:
+            c_left, c_right = st.columns(2)
+
+            with c_left:
+                st.markdown("##### ❌ Naive Search (Duplicate Inflation)")
+                st.caption("Every commit revision is scored individually — top slots are monopolized by duplicate versions:")
+                for rank, item in enumerate(naive_ranked[:5], start=1):
+                    doc_id = item["id"]
+                    title = MULTI_VERSION_SCENARIO[doc_id]["title"]
+                    score = item["score"]
+                    is_dup = any(doc_id.startswith(prefix) for prefix in ["auth_token:", "binary_search:", "quicksort:"]) and rank > 1
+                    dup_tag = " ⚠️ Duplicate Clutter" if is_dup else ""
+                    with st.expander(f"#{rank} — `{doc_id}` — Score: {score:.4f}{dup_tag}"):
+                        st.caption(title)
+                        st.code(texts[doc_id], language="python")
+
+            with c_right:
+                st.markdown("##### ✅ Ariadne Evolutionary Retrieval (Collapsed)")
+                st.caption("Duplicates are collapsed into single clusters, showing the highest-scoring version per cluster:")
+                for rank, res in enumerate(ranked_clusters[:5], start=1):
+                    vid = res["display_id"]
+                    cid = res["canonical_id"]
+                    v_count = res["version_count"]
+                    v_list = res["all_versions"]
+                    title = MULTI_VERSION_SCENARIO[vid]["title"]
+                    score = res["score"]
+
+                    badge_text = f"🛡️ Appears in {v_count} versions — showing best match `{vid}`" if v_count > 1 else "1 version"
+                    with st.expander(f"#{rank} — `{vid}` — Score: {score:.4f} ({v_count} versions)", expanded=(rank <= 2)):
+                        st.success(badge_text)
+                        if v_count > 1:
+                            member_breakdown = ", ".join(f"`{m}` ({res['member_scores'][m]:.4f})" for m in v_list)
+                            st.caption(f"Cluster members & scores: {member_breakdown}")
+                            st.caption(f"Default shortest canonical: `{cid}` ({res['canonical_score']:.4f})")
+                        st.caption(title)
+                        st.code(texts[vid], language="python")
+        else:
+            st.markdown(f"##### 🏆 Top Ranked Evolutionary Results for: *'{active_xv_query}'*")
+            for rank, res in enumerate(ranked_clusters[:5], start=1):
+                vid = res["display_id"]
+                cid = res["canonical_id"]
+                v_count = res["version_count"]
+                v_list = res["all_versions"]
+                title = MULTI_VERSION_SCENARIO[vid]["title"]
+                score = res["score"]
+
+                badge_text = f"🛡️ Appears in {v_count} versions, showing highest-scoring `{vid}`" if v_count > 1 else "Unique function (1 version)"
+                with st.expander(f"#{rank} — `{vid}` — Similarity: {score:.4f} ({v_count} versions)", expanded=(rank <= 2)):
+                    if v_count > 1:
+                        member_breakdown = ", ".join(f"`{m}` ({res['member_scores'][m]:.4f})" for m in v_list)
+                        st.info(f"**Duplicate Inflation Prevented:** {badge_text}. All historical commits: {member_breakdown}")
+                    st.caption(title)
+                    st.code(texts[vid], language="python")
+
+
 def main() -> None:
     """Main application entry point."""
     st.set_page_config(
@@ -586,13 +889,14 @@ def main() -> None:
         st.markdown("- **Checkpoint:** `finetuning/checkpoints/best_biencoder`")
         st.markdown("- **Embedding Dim:** 384 (float32)")
         st.markdown(f"- **Index Cache:** `{index.cache_path.name}`")
-        st.markdown("- **Dedup Threshold:** 0.95")
+        st.markdown("- **Dedup Threshold:** 0.90 / 0.95")
         st.markdown("---")
         st.caption("Ariadne Code Search • Person D Demo")
 
-    tab_search, tab_simulation = st.tabs([
+    tab_search, tab_simulation, tab_cross_version = st.tabs([
         "🔍 Semantic Search",
         "⚡ Version Update Simulation (P1 Demo)",
+        "🧬 Cross-Version Search (Bonus)",
     ])
 
     with tab_search:
@@ -600,6 +904,9 @@ def main() -> None:
 
     with tab_simulation:
         render_simulation_tab()
+
+    with tab_cross_version:
+        render_cross_version_tab()
 
 
 if __name__ == "__main__":
