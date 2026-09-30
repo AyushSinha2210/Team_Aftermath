@@ -1,0 +1,204 @@
+{
+  "issues": [],
+  "text_fit_estimates": [
+    {
+      "shape": "header_offline",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 15.3,
+      "available_height_pt": 14.97
+    },
+    {
+      "shape": "node_repo_commit",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.73,
+      "available_height_pt": 59.52
+    },
+    {
+      "shape": "node_tree_sitter_ast",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 23.46,
+      "available_height_pt": 59.52
+    },
+    {
+      "shape": "node_function_chunks",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 23.46,
+      "available_height_pt": 59.52
+    },
+    {
+      "shape": "node_sha256_diff",
+      "wrapped_lines": 3,
+      "estimated_height_pt": 32.13,
+      "available_height_pt": 59.52
+    },
+    {
+      "shape": "node_index_outputs",
+      "wrapped_lines": 3,
+      "estimated_height_pt": 35.7,
+      "available_height_pt": 59.52
+    },
+    {
+      "shape": "header_online",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 15.3,
+      "available_height_pt": 14.97
+    },
+    {
+      "shape": "node_query",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.73,
+      "available_height_pt": 38.96
+    },
+    {
+      "shape": "node_intent",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 20.91,
+      "available_height_pt": 38.96
+    },
+    {
+      "shape": "node_dense",
+      "wrapped_lines": 3,
+      "estimated_height_pt": 34.17,
+      "available_height_pt": 49.24
+    },
+    {
+      "shape": "node_sparse",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 22.95,
+      "available_height_pt": 49.24
+    },
+    {
+      "shape": "diamond_router",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 22.95,
+      "available_height_pt": 80.08
+    },
+    {
+      "shape": "node_cross_encoder",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 20.91,
+      "available_height_pt": 38.96
+    },
+    {
+      "shape": "node_fusion",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 20.91,
+      "available_height_pt": 38.96
+    },
+    {
+      "shape": "node_ranked_snippets",
+      "wrapped_lines": 3,
+      "estimated_height_pt": 37.74,
+      "available_height_pt": 189.72
+    },
+    {
+      "shape": "badge_fast_path",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 17.34,
+      "available_height_pt": 25.25
+    },
+    {
+      "shape": "badge_scope",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.22,
+      "available_height_pt": 25.25
+    },
+    {
+      "shape": "label_yes",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.22,
+      "available_height_pt": 11.55
+    },
+    {
+      "shape": "label_no",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.22,
+      "available_height_pt": 11.55
+    },
+    {
+      "shape": "label_cascade_file",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 9.18,
+      "available_height_pt": 11.55
+    },
+    {
+      "shape": "label_calibration",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.22,
+      "available_height_pt": 11.55
+    },
+    {
+      "shape": "label_ast_header",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.73,
+      "available_height_pt": 13.26
+    },
+    {
+      "shape": "label_graph_capabilities",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.22,
+      "available_height_pt": 13.26
+    },
+    {
+      "shape": "node_example_caller",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 23.46,
+      "available_height_pt": 32.1
+    },
+    {
+      "shape": "node_example_auth",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 23.46,
+      "available_height_pt": 32.1
+    },
+    {
+      "shape": "node_example_bluetooth",
+      "wrapped_lines": 2,
+      "estimated_height_pt": 23.46,
+      "available_height_pt": 32.1
+    },
+    {
+      "shape": "example_query_caption",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 11.22,
+      "available_height_pt": 14.97
+    },
+    {
+      "shape": "example_file_caption",
+      "wrapped_lines": 1,
+      "estimated_height_pt": 9.69,
+      "available_height_pt": 14.97
+    }
+  ],
+  "node_count": 16,
+  "example_strip_count": 1,
+  "native_connector_segments": 58,
+  "all_connectors_glued": true,
+  "body_fonts": [
+    "Aptos",
+    "Consolas"
+  ],
+  "title_unchanged": true,
+  "layout": "OBJECT",
+  "changed_package_parts": [
+    "ppt/slides/slide4.xml",
+    "ppt/notesSlides/notesSlide4.xml"
+  ],
+  "other_parts_identical": true,
+  "render_iterations": 3,
+  "neighbor_render_checks": {
+    "3": {
+      "same_size": true,
+      "identical_pixels": true
+    },
+    "5": {
+      "same_size": true,
+      "identical_pixels": true
+    }
+  },
+  "final_render_visually_reviewed": true,
+  "fonts_outside_existing_deck": [
+    "Consolas (filename captions only; explicitly requested)"
+  ],
+  "new_base_hues": []
+}
