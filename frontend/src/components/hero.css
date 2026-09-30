@@ -1,0 +1,16 @@
+.hero { position: relative; min-height: 710px; display: flex; justify-content: center; align-items: center; padding: 88px 0 70px; isolation: isolate; }
+.hero-glow { position: absolute; z-index: -1; width: 850px; max-width: 100%; height: 600px; top: 0; left: 50%; margin-left: -425px; background: radial-gradient(ellipse, var(--gold) 0%, transparent 65%); pointer-events: none; }
+.hero-content { position: relative; text-align: center; width: 100%; }
+.hero-kicker { color: var(--text-secondary); font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 35px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); display: inline-block; }
+.hero-title { font-family: var(--font-display); font-weight: 400; font-size: clamp(56px, 7.2vw, 98px); letter-spacing: -.055em; line-height: 1.04; }
+.hero-title span { color: var(--gold); font-style: italic; }
+.hero-subhead { max-width: 635px; margin: 30px auto; font-size: 16px; line-height: 1.85; color: var(--text-secondary); }
+.hero-qualification { margin-top: 25px; color: var(--text-secondary); font-size: 10px; }
+.hero-baseline { position: absolute; bottom: 28px; width: 100%; display: flex; justify-content: space-between; color: var(--text-secondary); font-size: 10px; }
+.hero-embedded { min-height: 340px; padding: 30px 24px; }
+.hero-embedded .hero-title { font-size: 46px; }
+.hero-embedded .hero-subhead { font-size: 10px; margin: 16px auto; max-width: 400px; }
+.hero-embedded .hero-kicker { font-size: 8px; margin-bottom: 18px; }
+.hero-embedded .button { min-height: 30px; font-size: 10px; padding: 8px 14px; }
+@media(max-width: 700px) { .hero { min-height: 650px; padding-top: 60px; } .hero-glow { left: 0; margin: 0; } .hero-title { font-size: clamp(45px, 10vw, 68px); } .hero-subhead { font-size: 14px; } .hero-baseline { font-size: 8px; } }
