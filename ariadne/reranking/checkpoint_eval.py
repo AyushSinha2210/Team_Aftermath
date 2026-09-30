@@ -197,18 +197,23 @@ def _print_fusion_rank_diagnostic(
 		]
 		best_dense_rank = min(dense_ranks) if dense_ranks else None
 		best_fused_rank = min(fused_ranks) if fused_ranks else None
-		sparse_ids = [
-			str(candidate_id)
-			for candidate_id, _ in hybrid_pipeline.sparse.retrieve(
-				query, k=len(hybrid_pipeline.corpus)
-			)
-		]
-		sparse_ranks = [
-			sparse_ids.index(candidate_id) + 1
-			for candidate_id in relevant_ids
-			if candidate_id in sparse_ids
-		]
-		best_sparse_rank = min(sparse_ranks) if sparse_ranks else None
+		sparse_pipeline = getattr(hybrid_pipeline, "sparse", None)
+		sparse_corpus = getattr(hybrid_pipeline, "corpus", None)
+		if sparse_pipeline is not None and sparse_corpus is not None:
+			sparse_ids = [
+				str(candidate_id)
+				for candidate_id, _ in sparse_pipeline.retrieve(
+					query, k=len(sparse_corpus)
+				)
+			]
+			sparse_ranks = [
+				sparse_ids.index(candidate_id) + 1
+				for candidate_id in relevant_ids
+				if candidate_id in sparse_ids
+			]
+			best_sparse_rank = min(sparse_ranks) if sparse_ranks else None
+		else:
+			best_sparse_rank = None
 		if best_dense_rank is not None and best_fused_rank is not None:
 			demotions.append(best_fused_rank - best_dense_rank)
 		if best_fused_rank is not None:
