@@ -3,7 +3,10 @@
 > **Samsung PRISM GenAI Hackathon (3rd Edition)**  
 > **Theme 01:** Agentic Code Intelligence  
 > **Target Benchmark:** CoIR `apps` Code Retrieval & Search Benchmark  
-> **Platform & Hardware Budget:** Pure CPU Inference (<35M Parameters, ultra-low latency)
+> **Platform & Hardware Budget:** Pure CPU Inference (<35M Parameters, ultra-low latency)  
+> **Official Submission Release Tag:** `PRISM_GENAI_HACKATHON_Y2026`  
+> **Demo Video (<= 5 min):** [Watch Demo Video Walkthrough](https://youtu.be/) *(YouTube / Drive)*  
+> **Presentation File:** `CollegeName_TeamName.pdf` / `CollegeName_TeamName.pptx`
 
 ---
 
@@ -289,6 +292,18 @@ Open your browser at `http://localhost:8501`. Features include:
 - Dynamic query expansion toggle.
 - Dense, BM25, and fused score breakdowns per result.
 
+### 5.7 Launch Containerized Prototype via Docker
+Deploy the complete prototype in an isolated Docker container:
+```bash
+# Using Docker Compose (One-command setup):
+docker compose up --build
+
+# Or standard Docker commands:
+docker build -t ariadne-demo .
+docker run -p 8501:8501 ariadne-demo
+```
+Access the web prototype at `http://localhost:8501`.
+
 ---
 
 ## 6. Engineering & Performance Highlights
@@ -297,7 +312,7 @@ Open your browser at `http://localhost:8501`. Features include:
 - **Fast-Path Cascade Routing**: Eliminates 58% of cross-encoder inference calls with zero loss in retrieval precision.
 - **VByte Compressed Indexing**: Reduces inverted index memory footprint by over 60% using delta-gap variable-byte encoding.
 - **Sub-Second Incremental Re-indexing**: Function-level SHA-256 hashing avoids re-embedding unchanged files, shrinking re-indexing from 53s to <1s.
-- **Robustness**: 155 automated unit and integration tests covering tokenization, late interaction, graph traversals, and statistical calibration.
+- **Robustness**: 157 automated unit and integration tests covering tokenization, late interaction, graph traversals, and statistical calibration.
 
 ---
 
