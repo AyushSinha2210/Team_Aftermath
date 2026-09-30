@@ -136,3 +136,55 @@ def linear_decay_fusion(
     ordered = sorted(scores.items(), key=lambda item: (-item[1], best_rank[item[0]], item[0]))
     return ordered if limit is None else ordered[:limit]
 
+
+def z_score_normalize(scores: Sequence[tuple[str, float]]) -> dict[str, float]:
+    """Standardizes retrieval scores via Z-score (mean=0, std=1).
+
+    Args:
+        scores: Sequence of (doc_id, score) pairs.
+
+    Returns:
+        Dict mapping doc_id -> standardized z-score.
+    """
+    if not scores:
+        return {}
+
+    values = [score for _, score in scores]
+    n = len(values)
+    mean_val = sum(values) / n
+    variance = sum((x - mean_val) ** 2 for x in values) / n
+    std_val = variance ** 0.5
+
+    if std_val == 0.0:
+        return {doc_id: 0.0 for doc_id, _ in scores}
+
+    return {doc_id: (score - mean_val) / std_val for doc_id, score in scores}
+
+
+def sigmoid_normalize(
+    scores: Sequence[tuple[str, float]],
+    temperature: float = 1.0,
+) -> dict[str, float]:
+    """Squashes retrieval scores smoothly to [0, 1] using standard sigmoid with standardization.
+
+    Formula: S_norm(d) = 1 / (1 + exp(-z / temperature)) where z is the standardized score.
+
+    Args:
+        scores: Sequence of (doc_id, score) pairs.
+        temperature: Temperature scaling factor.
+
+    Returns:
+        Dict mapping doc_id -> score in (0, 1).
+    """
+    import math
+
+    if not scores:
+        return {}
+
+    z_scores = z_score_normalize(scores)
+    return {
+        doc_id: 1.0 / (1.0 + math.exp(-z / max(1e-4, temperature)))
+        for doc_id, z in z_scores.items()
+    }
+
+
