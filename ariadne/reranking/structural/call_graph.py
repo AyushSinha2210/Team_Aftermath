@@ -175,3 +175,102 @@ def calls_within_depth(
 				reachable.add(called_function)
 				queue.append((called_function, depth + 1))
 	return reachable
+
+
+def resolve_call_path_bidirectional(
+	call_graph: Dict[str, List[str]],
+	source: str,
+	target: str,
+	max_depth: int | None = None,
+) -> List[str] | None:
+	"""Finds shortest path using bidirectional BFS with O(2 * b^(d/2)) complexity.
+
+	Traverses forward from source and backward from target across inverted edges.
+	"""
+	resolved_source = _resolve_function_name(call_graph, source)
+	resolved_target = _resolve_function_name(call_graph, target)
+
+	if resolved_source is None or resolved_target is None:
+		return None
+	if resolved_source == resolved_target:
+		return [resolved_source]
+
+	depth_limit = _max_depth(max_depth)
+
+	# Build inverted adjacency map for reverse traversal
+	inverted_graph: Dict[str, List[str]] = {}
+	for u, neighbors in call_graph.items():
+		for v in neighbors:
+			inverted_graph.setdefault(v, []).append(u)
+
+	forward_parents: Dict[str, str | None] = {resolved_source: None}
+	backward_parents: Dict[str, str | None] = {resolved_target: None}
+
+	forward_queue = deque([resolved_source])
+	backward_queue = deque([resolved_target])
+
+	intersection: str | None = None
+
+	while forward_queue and backward_queue:
+		# Forward expansion step
+		if forward_queue:
+			curr_f = forward_queue.popleft()
+			curr_f_depth = 0
+			temp = curr_f
+			while forward_parents[temp] is not None:
+				temp = forward_parents[temp]  # type: ignore
+				curr_f_depth += 1
+
+			if curr_f_depth < depth_limit:
+				for nxt in call_graph.get(curr_f, []):
+					if nxt not in forward_parents:
+						forward_parents[nxt] = curr_f
+						forward_queue.append(nxt)
+						if nxt in backward_parents:
+							intersection = nxt
+							break
+			if intersection:
+				break
+
+		# Backward expansion step
+		if backward_queue:
+			curr_b = backward_queue.popleft()
+			curr_b_depth = 0
+			temp = curr_b
+			while backward_parents[temp] is not None:
+				temp = backward_parents[temp]  # type: ignore
+				curr_b_depth += 1
+
+			if curr_b_depth < depth_limit:
+				for prev in inverted_graph.get(curr_b, []):
+					if prev not in backward_parents:
+						backward_parents[prev] = curr_b
+						backward_queue.append(prev)
+						if prev in forward_parents:
+							intersection = prev
+							break
+			if intersection:
+				break
+
+	if intersection is None:
+		return None
+
+	# Reconstruct full path: source -> ... -> intersection -> ... -> target
+	forward_path = []
+	curr = intersection
+	while curr is not None:
+		forward_path.append(curr)
+		curr = forward_parents[curr]
+	forward_path.reverse()
+
+	backward_path = []
+	curr = backward_parents[intersection]
+	while curr is not None:
+		backward_path.append(curr)
+		curr = backward_parents[curr]
+
+	full_path = forward_path + backward_path
+	if len(full_path) - 1 > depth_limit:
+		return None
+	return full_path
+
