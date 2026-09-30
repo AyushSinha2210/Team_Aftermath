@@ -1,0 +1,295 @@
+{
+  "theme": "Theme 01: Agentic Code Intelligence",
+  "timestamp": "20260930_175407",
+  "repository_language": "JavaScript",
+  "indexing_cost_ms": 8.907399998861365,
+  "total_benchmark_queries": 5,
+  "metrics": {
+    "precision@k": 1.0,
+    "recall": 1.0,
+    "mean_latency_ms": 0.41,
+    "p95_latency_ms": 0.72
+  },
+  "query_results": [
+    {
+      "query": "where is the Bluetooth-settings deeplink used?",
+      "type": "usage",
+      "hit_expected": true,
+      "matches_count": 4,
+      "surfaced_locations": [
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "24-30"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "9-15"
+        },
+        {
+          "file": "tools/bluetoothTool.js",
+          "lines": "18-24"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "14-20"
+        }
+      ],
+      "latency_ms": 0.17,
+      "optimizations": [
+        "[Cache Optimization] In `agents/settingsAgent.js`: Add in-memory session token caching (TTL 60s) to prevent redundant auth database roundtrips on voice command chains."
+      ]
+    },
+    {
+      "query": "which files call tool authTool before bluetoothTool?",
+      "type": "structural",
+      "hit_expected": true,
+      "matches_count": 2,
+      "surfaced_locations": [
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "18-29"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "34-42"
+        }
+      ],
+      "latency_ms": 0.72,
+      "optimizations": [
+        "[Parallel Execution] In `agents/settingsAgent.js`: Consecutive independent `await` statements detected. Combine using `await Promise.all([taskA(), taskB()])` to reduce voice turn latency.",
+        "[Cache Optimization] In `agents/settingsAgent.js`: Add in-memory session token caching (TTL 60s) to prevent redundant auth database roundtrips on voice command chains."
+      ]
+    },
+    {
+      "query": "which files call tool authTool before audioTool?",
+      "type": "structural",
+      "hit_expected": true,
+      "matches_count": 2,
+      "surfaced_locations": [
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "16-22"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "27-30"
+        }
+      ],
+      "latency_ms": 0.1,
+      "optimizations": [
+        "[Parallel Execution] In `agents/mediaAgent.js`: Consecutive independent `await` statements detected. Combine using `await Promise.all([taskA(), taskB()])` to reduce voice turn latency.",
+        "[Cache Optimization] In `agents/mediaAgent.js`: Add in-memory session token caching (TTL 60s) to prevent redundant auth database roundtrips on voice command chains."
+      ]
+    },
+    {
+      "query": "where is device volume adjusted and set?",
+      "type": "usage",
+      "hit_expected": true,
+      "matches_count": 24,
+      "surfaced_locations": [
+        {
+          "file": "tools/audioTool.js",
+          "lines": "3-9"
+        },
+        {
+          "file": "tools/bluetoothTool.js",
+          "lines": "3-9"
+        },
+        {
+          "file": "tools/bluetoothTool.js",
+          "lines": "11-17"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "14-20"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "32-38"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "34-40"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "35-41"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "12-18"
+        },
+        {
+          "file": "tools/audioTool.js",
+          "lines": "5-11"
+        },
+        {
+          "file": "tools/audioTool.js",
+          "lines": "13-17"
+        },
+        {
+          "file": "tools/bluetoothTool.js",
+          "lines": "12-18"
+        },
+        {
+          "file": "tools/bluetoothTool.js",
+          "lines": "13-19"
+        },
+        {
+          "file": "tools/bluetoothTool.js",
+          "lines": "25-30"
+        },
+        {
+          "file": "tools/bluetoothTool.js",
+          "lines": "26-30"
+        },
+        {
+          "file": "router.js",
+          "lines": "13-19"
+        },
+        {
+          "file": "router.js",
+          "lines": "14-20"
+        },
+        {
+          "file": "router.js",
+          "lines": "15-21"
+        },
+        {
+          "file": "router.js",
+          "lines": "16-22"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "4-10"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "17-23"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "19-25"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "4-10"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "37-43"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "39-45"
+        }
+      ],
+      "latency_ms": 0.54,
+      "optimizations": [
+        "[Cache Optimization] In `agents/mediaAgent.js`: Add in-memory session token caching (TTL 60s) to prevent redundant auth database roundtrips on voice command chains.",
+        "[Parallel Execution] In `agents/settingsAgent.js`: Consecutive independent `await` statements detected. Combine using `await Promise.all([taskA(), taskB()])` to reduce voice turn latency."
+      ]
+    },
+    {
+      "query": "how is user session authentication verified?",
+      "type": "semantic",
+      "hit_expected": true,
+      "matches_count": 22,
+      "surfaced_locations": [
+        {
+          "file": "tools/authTool.js",
+          "lines": "1-5"
+        },
+        {
+          "file": "tools/authTool.js",
+          "lines": "3-9"
+        },
+        {
+          "file": "tools/authTool.js",
+          "lines": "8-14"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "14-20"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "15-21"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "25-31"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "16-22"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "18-24"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "32-38"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "12-18"
+        },
+        {
+          "file": "tools/authTool.js",
+          "lines": "4-10"
+        },
+        {
+          "file": "tools/authTool.js",
+          "lines": "5-11"
+        },
+        {
+          "file": "tools/authTool.js",
+          "lines": "9-15"
+        },
+        {
+          "file": "tools/authTool.js",
+          "lines": "14-18"
+        },
+        {
+          "file": "router.js",
+          "lines": "12-18"
+        },
+        {
+          "file": "router.js",
+          "lines": "14-20"
+        },
+        {
+          "file": "router.js",
+          "lines": "16-22"
+        },
+        {
+          "file": "router.js",
+          "lines": "18-24"
+        },
+        {
+          "file": "agents/mediaAgent.js",
+          "lines": "26-32"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "4-10"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "17-23"
+        },
+        {
+          "file": "agents/settingsAgent.js",
+          "lines": "33-39"
+        }
+      ],
+      "latency_ms": 0.53,
+      "optimizations": [
+        "[Cache Optimization] In `tools/authTool.js`: Add in-memory session token caching (TTL 60s) to prevent redundant auth database roundtrips on voice command chains.",
+        "[Cache Optimization] In `agents/mediaAgent.js`: Add in-memory session token caching (TTL 60s) to prevent redundant auth database roundtrips on voice command chains."
+      ]
+    }
+  ]
+}

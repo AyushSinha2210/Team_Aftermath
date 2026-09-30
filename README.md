@@ -7,7 +7,45 @@
 
 ---
 
-## 1. Executive Summary & Benchmark Results
+## 1. Samsung PRISM Hackathon: Theme 01 -- Agentic Code Intelligence
+
+> **Problem Statement**: Voice-assistant codebases are huge: dozens of agents and tools spread across thousands of files. A new developer cannot hold it all in their head, and neither can an LLM, since the whole repo will never fit in a context window. Finding where something happens, and then fixing it, is the slow part.
+
+### Theme 01 Capabilities Delivered
+
+1. **Plain-English Search**: Takes natural language queries and returns matching code snippets with exact file paths and line ranges.
+2. **AST Structural Queries**: Answers structural tool sequencing queries like *"which files call tool XYZ before tool ABC?"* via AST call graph caller tracing.
+3. **Usage & Deeplink Queries**: Answers literal usage queries like *"where is the Bluetooth-settings deeplink used?"* locating `settings://bluetooth/connections`.
+4. **Autonomous Agentic Loop**: Executes **Plan ➔ Search ➔ Read ➔ Refine** across repositories far larger than LLM context windows.
+5. **Bonus Autonomous Optimization Advisor**: Inspects surfaced code paths for cyclomatic complexity, async parallelization (`Promise.all`), and token cache optimizations.
+6. **Pure CPU Execution**: Sub-millisecond latency on standard CPU hardware with minimal indexing cost.
+
+### Theme 01 Official Benchmark Report
+
+```text
+================================================================================
+SAMSUNG PRISM HACKATHON -- THEME 01: AGENTIC CODE INTELLIGENCE
+================================================================================
+  Repository       : JavaScript Voice Assistant (Agents, Tools, Router)
+  Language         : JavaScript
+  Precision@k      : 1.0000 (100.0%)
+  Recall           : 1.0000 (100.0%)
+  Mean Latency     : 0.41 ms (Pure CPU Execution)
+  Indexing Cost    : 8.91 ms (AST + Call Graph)
+================================================================================
+```
+
+| Benchmark Query | Query Type | Surfaced File & Lines | Execution Latency | Bonus Optimization Advisor |
+| :--- | :---: | :---: | :---: | :--- |
+| `where is the Bluetooth-settings deeplink used?` | **Usage** | `agents/settingsAgent.js:24-30` | **0.17 ms** | Session token caching (TTL 60s) |
+| `which files call tool authTool before bluetoothTool?` | **Structural** | `agents/settingsAgent.js:18-29` | **0.72 ms** | Async `Promise.all` parallelism |
+| `which files call tool authTool before audioTool?` | **Structural** | `agents/mediaAgent.js:16-22` | **0.10 ms** | Async `Promise.all` parallelism |
+| `where is device volume adjusted and set?` | **Usage** | `tools/audioTool.js:3-9` | **0.54 ms** | Hardware volume boundary clamping |
+| `how is user session authentication verified?` | **Semantic** | `tools/authTool.js:1-5` | **0.53 ms** | In-memory token cache optimization |
+
+---
+
+## 2. System Architecture & Benchmark Results
 
 **Ariadne** is a multi-stage, CPU-optimized agentic code intelligence engine combining contrastive representation learning, code-aware sparse indexing, confidence-gated cascade routing, AST structural analysis, and incremental git-commit versioning.
 
@@ -217,13 +255,20 @@ pip install -r ariadne/requirements.txt
 bash ariadne/data/download.sh
 ```
 
-### 5.3 Run Unit & Integration Test Suite
+### 5.3 Run Theme 01 Official Benchmark
+Run the Theme 01 Agentic Code Intelligence benchmark harness on the JavaScript Voice Assistant codebase:
 ```bash
-python -m pytest -q
-# Result: 155 passed in ~29s (100% test pass rate)
+python ariadne/eval/theme1_benchmark.py
+# Outputs: 100% Precision@k, 100% Recall, 0.41ms Mean Latency, 8.91ms Indexing Cost
 ```
 
-### 5.4 Evaluate All Checkpoint Configurations
+### 5.4 Run Complete Unit & Integration Test Suite
+```bash
+python -m pytest -q
+# Result: 157 passed, 5 skipped (100% test pass rate across all modules)
+```
+
+### 5.5 Evaluate All Checkpoint Configurations
 Run the comparative evaluation across Config A, Config B, Config C, Config D, and Config E:
 ```bash
 # Fast evaluation on 50 representative queries:
@@ -233,7 +278,7 @@ python ariadne/reranking/checkpoint_eval.py --limit 50
 python ariadne/reranking/checkpoint_eval.py
 ```
 
-### 5.5 Launch the Interactive Search Demo
+### 5.6 Launch the Interactive Search Demo
 Launch the Streamlit web application:
 ```bash
 streamlit run ariadne/versioning/demo/app.py

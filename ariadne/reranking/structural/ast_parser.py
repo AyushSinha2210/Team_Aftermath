@@ -46,23 +46,25 @@ def _function_name(node: Node, source: bytes) -> str:
 	return "<anonymous>"
 
 
-def _call_name(node: Node, source: bytes) -> str | None:
+def _call_name(node: Node, source: bytes, include_methods: bool = False) -> str | None:
 	function_node = node.child_by_field_name("function")
 	if function_node is None:
 		return None
 	if function_node.type == "identifier":
 		return _node_text(function_node, source)
+	if include_methods and function_node.type == "member_expression":
+		return _node_text(function_node, source)
 	return None
 
 
-def _direct_calls(body: Node, source: bytes) -> List[str]:
+def _direct_calls(body: Node, source: bytes, include_methods: bool = False) -> List[str]:
 	calls: List[str] = []
 
 	def visit(node: Node) -> None:
 		if node is not body and _is_function_node(node):
 			return
 		if node.type == "call_expression":
-			name = _call_name(node, source)
+			name = _call_name(node, source, include_methods=include_methods)
 			if name is not None:
 				calls.append(name)
 		for child in node.children:
@@ -72,7 +74,7 @@ def _direct_calls(body: Node, source: bytes) -> List[str]:
 	return calls
 
 
-def parse_js_file(file_path: str) -> List[dict[str, Any]]:
+def parse_js_file(file_path: str, include_methods: bool = False) -> List[dict[str, Any]]:
 	"""Return JavaScript functions and calls made directly in each body."""
 	path_obj = Path(file_path)
 	file_name = path_obj.name
@@ -85,7 +87,7 @@ def parse_js_file(file_path: str) -> List[dict[str, Any]]:
 	def visit(node: Node) -> None:
 		if _is_function_node(node):
 			body = node.child_by_field_name("body")
-			calls = _direct_calls(body, source) if body is not None else []
+			calls = _direct_calls(body, source, include_methods=include_methods) if body is not None else []
 			bare_name = _function_name(node, source)
 			functions.append(
 				{
@@ -104,10 +106,10 @@ def parse_js_file(file_path: str) -> List[dict[str, Any]]:
 	return functions
 
 
-def parse_repo(repo_dir: str, pattern: str = "*.js") -> List[dict[str, Any]]:
+def parse_repo(repo_dir: str, pattern: str = "*.js", include_methods: bool = False) -> List[dict[str, Any]]:
 	"""Walk a directory, parse all matching JavaScript files, and return combined functions."""
 	repo_path = Path(repo_dir)
 	functions: List[dict[str, Any]] = []
 	for file_path in sorted(repo_path.rglob(pattern)):
-		functions.extend(parse_js_file(str(file_path)))
+		functions.extend(parse_js_file(str(file_path), include_methods=include_methods))
 	return functions
