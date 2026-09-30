@@ -31,3 +31,160 @@ def reciprocal_rank_fusion(
             best_rank[doc_id] = min(best_rank.get(doc_id, rank), rank)
     ordered = sorted(scores.items(), key=lambda item: (-item[1], best_rank[item[0]], item[0]))
     return ordered if limit is None else ordered[:limit]
+
+
+def min_max_normalize(scores: Sequence[tuple[str, float]]) -> dict[str, float]:
+    """Min-max normalizes ranking scores into the [0.0, 1.0] range.
+
+    Args:
+        scores: Sequence of (doc_id, score) pairs.
+
+    Returns:
+        Dict mapping doc_id -> normalized score in [0.0, 1.0].
+    """
+    if not scores:
+        return {}
+
+    raw_values = [score for _, score in scores]
+    min_val = min(raw_values)
+    max_val = max(raw_values)
+
+    if max_val == min_val:
+        return {doc_id: 1.0 for doc_id, _ in scores}
+
+    span = max_val - min_val
+    return {doc_id: (score - min_val) / span for doc_id, score in scores}
+
+
+def convex_score_fusion(
+    dense_ranking: Sequence[tuple[str, float]],
+    sparse_ranking: Sequence[tuple[str, float]],
+    alpha: float = 0.85,
+    limit: int | None = None,
+) -> list[tuple[str, float]]:
+    """Combines normalized dense and sparse scores via convex combination.
+
+    Formula: S(d) = alpha * Dense(d) + (1 - alpha) * Sparse(d)
+
+    Args:
+        dense_ranking: Ordered list of (doc_id, dense_score).
+        sparse_ranking: Ordered list of (doc_id, bm25_score).
+        alpha: Weight for dense score in [0.0, 1.0]. Defaults to 0.85.
+        limit: Optional maximum number of results to return.
+
+    Returns:
+        Sorted list of (doc_id, fused_score) tuples.
+    """
+    if not 0.0 <= alpha <= 1.0:
+        raise ValueError("alpha must be in [0.0, 1.0]")
+
+    norm_dense = min_max_normalize(dense_ranking)
+    norm_sparse = min_max_normalize(sparse_ranking)
+
+    all_ids = set(norm_dense) | set(norm_sparse)
+    fused_scores: dict[str, float] = {}
+
+    for doc_id in all_ids:
+        d_score = norm_dense.get(doc_id, 0.0)
+        s_score = norm_sparse.get(doc_id, 0.0)
+        fused_scores[doc_id] = (alpha * d_score) + ((1.0 - alpha) * s_score)
+
+    ordered = sorted(fused_scores.items(), key=lambda item: (-item[1], item[0]))
+    return ordered if limit is None else ordered[:limit]
+
+
+def linear_decay_fusion(
+    rankings: Sequence[Sequence[tuple[str, float]]],
+    *,
+    weights: Sequence[float] | None = None,
+    decay_rate: float = 0.05,
+    limit: int | None = None,
+) -> list[tuple[str, float]]:
+    """Combines rankings with linear rank decay scoring.
+
+    Formula: S(d) = sum_i w_i * max(0.0, 1.0 - decay_rate * (rank - 1))
+
+    Args:
+        rankings: Sequence of ranked (doc_id, score) lists.
+        weights: Optional weights per ranking list.
+        decay_rate: Rate of score decrease per subsequent rank.
+        limit: Optional maximum count of candidates to return.
+
+    Returns:
+        Sorted list of (doc_id, fused_score) tuples.
+    """
+    if decay_rate <= 0 or (limit is not None and limit < 0):
+        raise ValueError("decay_rate must be positive and limit must be nonnegative")
+    if weights is None:
+        weights = [1.0] * len(rankings)
+    if len(weights) != len(rankings) or any(weight < 0 for weight in weights):
+        raise ValueError("Supply one nonnegative weight per ranking")
+
+    scores: dict[str, float] = defaultdict(float)
+    best_rank: dict[str, int] = {}
+
+    for ranking, weight in zip(rankings, weights):
+        seen: set[str] = set()
+        for rank, (doc_id, _) in enumerate(ranking, start=1):
+            if doc_id in seen:
+                continue
+            seen.add(doc_id)
+            score_contrib = max(0.0, 1.0 - decay_rate * (rank - 1))
+            scores[doc_id] += weight * score_contrib
+            best_rank[doc_id] = min(best_rank.get(doc_id, rank), rank)
+
+    ordered = sorted(scores.items(), key=lambda item: (-item[1], best_rank[item[0]], item[0]))
+    return ordered if limit is None else ordered[:limit]
+
+
+def z_score_normalize(scores: Sequence[tuple[str, float]]) -> dict[str, float]:
+    """Standardizes retrieval scores via Z-score (mean=0, std=1).
+
+    Args:
+        scores: Sequence of (doc_id, score) pairs.
+
+    Returns:
+        Dict mapping doc_id -> standardized z-score.
+    """
+    if not scores:
+        return {}
+
+    values = [score for _, score in scores]
+    n = len(values)
+    mean_val = sum(values) / n
+    variance = sum((x - mean_val) ** 2 for x in values) / n
+    std_val = variance ** 0.5
+
+    if std_val == 0.0:
+        return {doc_id: 0.0 for doc_id, _ in scores}
+
+    return {doc_id: (score - mean_val) / std_val for doc_id, score in scores}
+
+
+def sigmoid_normalize(
+    scores: Sequence[tuple[str, float]],
+    temperature: float = 1.0,
+) -> dict[str, float]:
+    """Squashes retrieval scores smoothly to [0, 1] using standard sigmoid with standardization.
+
+    Formula: S_norm(d) = 1 / (1 + exp(-z / temperature)) where z is the standardized score.
+
+    Args:
+        scores: Sequence of (doc_id, score) pairs.
+        temperature: Temperature scaling factor.
+
+    Returns:
+        Dict mapping doc_id -> score in (0, 1).
+    """
+    import math
+
+    if not scores:
+        return {}
+
+    z_scores = z_score_normalize(scores)
+    return {
+        doc_id: 1.0 / (1.0 + math.exp(-z / max(1e-4, temperature)))
+        for doc_id, z in z_scores.items()
+    }
+
+

@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  ariadne-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ariadne_agentic_demo
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+    restart: unless-stopped

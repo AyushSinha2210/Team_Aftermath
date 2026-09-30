@@ -3,6 +3,7 @@
 torch==2.3.1
 sentence-transformers==3.0.1
 mteb==2.21.3
+huggingface_hub>=0.34,<0.36
 rank-bm25==0.2.2
 datasets==2.19.2
 pyyaml==6.0.1
@@ -11,3 +12,7 @@ tqdm==4.66.4
 numpy==1.26.4
 transformers==4.41.2
 accelerate==0.30.1
+tree-sitter==0.21.3
+tree-sitter-languages==1.10.2
+# gradio==4.44.1 - replaced with streamlit due to template rendering and localhost proxy issues
+streamlit==1.64

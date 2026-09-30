@@ -32,11 +32,24 @@ class HybridPipeline:
         self.sparse.index(self.corpus)
 
     def retrieve(
-        self, query: str, k: int = 50, *, dense_vector: np.ndarray | None = None
+        self,
+        query: str,
+        k: int = 50,
+        *,
+        dense_vector: np.ndarray | None = None,
+        use_hyde: bool = False,
     ) -> list[dict[str, object]]:
         if k <= 0:
             return []
         dense_k = max(k, int(self.config["dense_top_k"]))
+
+        if use_hyde and dense_vector is None:
+            from ariadne.retrieval.code_hyde import average_hyde_embeddings, expand_hyde_queries
+            hyde_queries = expand_hyde_queries(query)
+            if hyde_queries:
+                hyde_vecs = self.dense.encoder(hyde_queries)
+                dense_vector = average_hyde_embeddings([hyde_vecs[i] for i in range(len(hyde_queries))])
+
         dense = (
             self.dense.retrieve(query, dense_k)
             if dense_vector is None

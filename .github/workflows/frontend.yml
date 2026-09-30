@@ -1,0 +1,41 @@
+name: Ariadne frontend and browser API
+"on":
+  push:
+    paths: ['frontend/**', 'ariadne/frontend_api/**', '.github/workflows/frontend.yml']
+  pull_request:
+    paths: ['frontend/**', 'ariadne/frontend_api/**', '.github/workflows/frontend.yml']
+permissions:
+  contents: read
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: node scripts/audit-ui.mjs
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --audit-level=moderate
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+  api-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: python -m pip install numpy==1.26.4 pyyaml==6.0.1 rank-bm25==0.2.2 tree-sitter==0.21.3 tree-sitter-languages==1.10.2 pytest==8.2.2
+      - run: python -m pytest ariadne/frontend_api -q

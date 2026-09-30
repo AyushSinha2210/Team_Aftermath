@@ -1,0 +1,113 @@
+{
+  "recorded_at": "2026-09-30T13:41:41.381374+00:00",
+  "source_commit": "1806c98bfb23d35ebe4580076413516ae375c90f",
+  "corpus": "ariadne/data/voice_assistant_js",
+  "records": [
+    {
+      "query": "How is user input validated before the main handler?",
+      "response": {
+        "api_version": 1,
+        "status": "success",
+        "mode": "dense",
+        "query": "How is user input validated before the main handler?",
+        "elapsed_ms": 193.461,
+        "results": [
+          {
+            "id": "tools/authTool.js:5:verifySession",
+            "file": "tools/authTool.js",
+            "start_line": 5,
+            "end_line": 8,
+            "title": "verifySession",
+            "code": "async function verifySession(sessionId) {\n  if (!sessionId) return false;\n  return String(sessionId).startsWith('sess_');\n}",
+            "score": 0.2988497316837311,
+            "dense_score": 0.2988497316837311,
+            "sparse_score": null,
+            "sources": [
+              "dense"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "query": "Where is the retry logic for failed requests?",
+      "response": {
+        "api_version": 1,
+        "status": "success",
+        "mode": "dense",
+        "query": "Where is the retry logic for failed requests?",
+        "elapsed_ms": 113.498,
+        "results": [
+          {
+            "id": "tools/authTool.js:10:refreshToken",
+            "file": "tools/authTool.js",
+            "start_line": 10,
+            "end_line": 13,
+            "title": "refreshToken",
+            "code": "async function refreshToken(sessionId) {\n  if (!sessionId) throw new Error('Invalid session');\n  return `token_${Date.now()}`;\n}",
+            "score": 0.23996306955814362,
+            "dense_score": 0.23996306955814362,
+            "sparse_score": null,
+            "sources": [
+              "dense"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "query": "Which functions call the authentication middleware?",
+      "response": {
+        "api_version": 1,
+        "status": "success",
+        "mode": "dense",
+        "query": "Which functions call the authentication middleware?",
+        "elapsed_ms": 154.296,
+        "results": [
+          {
+            "id": "agents/settingsAgent.js:18:openBluetoothSettings",
+            "file": "agents/settingsAgent.js",
+            "start_line": 18,
+            "end_line": 29,
+            "title": "openBluetoothSettings",
+            "code": "  async openBluetoothSettings(sessionId) {\n    // Authenticate session before accessing privileged settings\n    const isAuthed = await authTool.verifySession(sessionId);\n    if (!isAuthed) {\n      throw new Error('Unauthorized settings access');\n    }\n    \n    // Usage of Bluetooth-settings deeplink\n    const targetDeeplink = 'settings://bluetooth/connections';\n    const status = await bluetoothTool.navigateToDeeplink(targetDeeplink);\n    return { success: true, deeplink: targetDeeplink, status };\n  }",
+            "score": 0.23860575258731842,
+            "dense_score": 0.23860575258731842,
+            "sparse_score": null,
+            "sources": [
+              "dense"
+            ]
+          },
+          {
+            "id": "agents/mediaAgent.js:27:muteMicrophone",
+            "file": "agents/mediaAgent.js",
+            "start_line": 27,
+            "end_line": 30,
+            "title": "muteMicrophone",
+            "code": "  async muteMicrophone(sessionId) {\n    await authTool.verifySession(sessionId);\n    return await audioTool.muteMicrophone(true);\n  }",
+            "score": 0.23827603459358215,
+            "dense_score": 0.23827603459358215,
+            "sparse_score": null,
+            "sources": [
+              "dense"
+            ]
+          },
+          {
+            "id": "tools/authTool.js:5:verifySession",
+            "file": "tools/authTool.js",
+            "start_line": 5,
+            "end_line": 8,
+            "title": "verifySession",
+            "code": "async function verifySession(sessionId) {\n  if (!sessionId) return false;\n  return String(sessionId).startsWith('sess_');\n}",
+            "score": 0.23243774473667145,
+            "dense_score": 0.23243774473667145,
+            "sparse_score": null,
+            "sources": [
+              "dense"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

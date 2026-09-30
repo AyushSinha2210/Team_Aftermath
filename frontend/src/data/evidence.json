@@ -1,0 +1,40 @@
+{
+  "official": {
+    "source": "ariadne/submission/appsretrieval_results.json",
+    "task": "AppsRetrieval",
+    "split": "test",
+    "mtebVersion": "2.21.3",
+    "datasetRevision": "f22508f96b7a36c2415181ed8bb76f76e04ae2d5",
+    "ndcg": 0.15916,
+    "mrr": 0.1371307363140031
+  },
+  "validation": {
+    "source": "ariadne/eval/results/checkpoint_eval_20260930_120930.json",
+    "split": "valid (data/raw/valid)",
+    "queries": 50,
+    "candidates": 500,
+    "rows": [
+      {
+        "key": "config_a",
+        "name": "Config A (dense retrieval only)",
+        "ndcg": 0.7391292012176285,
+        "mrr": 0.7065,
+        "latencyMs": null
+      },
+      {
+        "key": "config_b",
+        "name": "Config B (dense + BM25 fusion)",
+        "ndcg": 0.7213921450729379,
+        "mrr": 0.6825,
+        "latencyMs": null
+      },
+      {
+        "key": "config_d",
+        "name": "Config D (dense + BM25 fusion + cross-encoder reranking + calibration)",
+        "ndcg": 0.5956431523889395,
+        "mrr": 0.5314126984126984,
+        "latencyMs": null
+      }
+    ]
+  }
+}

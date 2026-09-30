@@ -16,5 +16,20 @@ ariadne/data/raw/*
 !ariadne/data/raw/.gitkeep
 ariadne/finetuning/checkpoints/*
 !ariadne/finetuning/checkpoints/.gitkeep
+!ariadne/finetuning/checkpoints/best_biencoder
+!ariadne/finetuning/checkpoints/best_biencoder/**
+ariadne/finetuning/checkpoints/*.zip
 ariadne/eval/results/*
 !ariadne/eval/results/.gitkeep
+
+# User pasted local working files
+node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+.delivery/
+reports/qa/
+*.pptx
+ariadne/CollegeName_TeamName_Submission.pptx
+ariadne/ariadne-frontend-antigravity-spec.md
+ariadne/theme1_guidelines.pdf
