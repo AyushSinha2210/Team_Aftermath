@@ -15,11 +15,17 @@ flush() {
   can_push || { echo 'Push deferred: GitHub must authenticate as abhi-s99.'; return 0; }
   [[ -f .delivery/pending ]] || return 0
   # Use the same authenticated account for Git transport as for the API check.
-  git config --local credential.https://github.com.helper ''
+  git config --local --replace-all credential.https://github.com.helper ''
   git config --local --add credential.https://github.com.helper '!gh auth git-credential'
+  # A queue may survive a manual push; never try to move the remote backwards.
+  git fetch origin Abhilash
   while [[ -s .delivery/pending ]]; do
     read -r sha < .delivery/pending
-    git push origin "$sha:refs/heads/Abhilash"
+    if git merge-base --is-ancestor "$sha" origin/Abhilash; then
+      echo "Already on origin/Abhilash: $sha"
+    else
+      git push origin "$sha:refs/heads/Abhilash"
+    fi
     echo "$sha" >> .delivery/pushed
     tail -n +2 .delivery/pending > .delivery/pending.next
     mv .delivery/pending.next .delivery/pending
