@@ -32,6 +32,7 @@ frontend/playwright-report/
 .delivery/
 reports/qa/
 *.pptx
+!Ariadne_Team_Aftermath_Submission.pptx
 ariadne/CollegeName_TeamName_Submission.pptx
 ariadne/ariadne-frontend-antigravity-spec.md
 ariadne/theme1_guidelines.pdf
