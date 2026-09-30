@@ -8,17 +8,12 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping
 
 
-_PARTS = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+")
+from ariadne.retrieval.code_tokenizer import tokenize_code
 
 
 def tokenize(text: str) -> list[str]:
     """Split snake_case and camelCase while preserving exact identifiers."""
-    tokens: list[str] = []
-    for word in re.findall(r"[A-Za-z_][A-Za-z_0-9]*|\d+", text):
-        tokens.append(word.lower())
-        for piece in word.split("_"):
-            tokens.extend(part.lower() for part in _PARTS.findall(piece) if part.lower() != word.lower())
-    return tokens
+    return tokenize_code(text)
 
 
 class SparseRetriever:
