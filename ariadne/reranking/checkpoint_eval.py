@@ -403,6 +403,29 @@ def evaluate_checkpoint(
 
 	config_d_metrics = _evaluate_ranked_orders(config_d_ids, config_d_query_ids, qrels)
 	config_d_query_count = len(config_d_query_ids)
+
+	# Config E: Cascade Router (Confidence-gated dynamic reranking)
+	from ariadne.reranking.cascade_router import CascadeRouter
+	cascade_router = CascadeRouter(confidence_threshold=0.08)
+	config_e_ids: List[List[str]] = []
+	config_e_query_ids: List[str] = []
+	fast_path_count = 0
+	escalated_count = 0
+
+	for query_id, query, dense_cands in zip(query_ids, queries, all_dense_candidates):
+		try:
+			route_res = cascade_router.route(query, dense_cands[:50], score_cache=score_cache)
+			if route_res["decision"] == "fast_path":
+				fast_path_count += 1
+			else:
+				escalated_count += 1
+			config_e_ids.append([candidate["id"] for candidate in route_res["candidates"]])
+			config_e_query_ids.append(str(query_id))
+		except Exception:
+			config_e_ids.append([candidate["id"] for candidate in dense_cands])
+			config_e_query_ids.append(str(query_id))
+
+	config_e_metrics = _evaluate_ranked_orders(config_e_ids, config_e_query_ids, qrels)
 	pool_diagnostic = {
 		"queries_with_relevant_in_rerank_pool": pool_hit_query_count,
 		"reranked_top10_fraction": (
@@ -448,6 +471,12 @@ def evaluate_checkpoint(
 					else 0.0
 				),
 			},
+		},
+		"config_e": {
+			"name": "Config E (Cascade Router: Dense + Conditional Rerank)",
+			"metrics": config_e_metrics,
+			"fast_path_rate": fast_path_count / len(query_ids) if query_ids else 0.0,
+			"escalated_rate": escalated_count / len(query_ids) if query_ids else 0.0,
 		},
 	}
 
@@ -498,23 +527,37 @@ def main(limit: int | None = None, verbose: bool = False) -> Path:
 		"Config C": report["config_c"]["metrics"]["ndcg@10"],
 		"Config D": report["config_d"]["metrics"]["ndcg@10"],
 	}
+	if "config_e" in report:
+		config_ndcg["Config E"] = report["config_e"]["metrics"]["ndcg@10"]
 	winner = max(config_ndcg, key=config_ndcg.get)
-	print("=" * 90, flush=True)
+	print("=" * 110, flush=True)
 	print("ARIADNE DAY 4-5 CHECKPOINT EVALUATION", flush=True)
-	print("=" * 90, flush=True)
-	print(f"{'Metric':<14} | {'Config A':>12} | {'Config B':>12} | {'Config C':>12} | {'Config D':>12}", flush=True)
-	print("-" * 75, flush=True)
+	print("=" * 110, flush=True)
+	has_e = "config_e" in report
+	headers = f"{'Metric':<14} | {'Config A':>12} | {'Config B':>12} | {'Config C':>12} | {'Config D':>12}"
+	if has_e:
+		headers += f" | {'Config E (Cascade)':>18}"
+	print(headers, flush=True)
+	print("-" * (96 if has_e else 75), flush=True)
 	for metric in ["ndcg@10", "mrr@10", "recall@1", "recall@5", "recall@10"]:
-		print(
+		row = (
 			f"{metric:<14} | {report['config_a']['metrics'][metric]:>12.4f} | "
 			f"{report['config_b']['metrics'][metric]:>12.4f} | "
 			f"{report['config_c']['metrics'][metric]:>12.4f} | "
-			f"{report['config_d']['metrics'][metric]:>12.4f}",
-			flush=True,
+			f"{report['config_d']['metrics'][metric]:>12.4f}"
 		)
+		if has_e:
+			row += f" | {report['config_e']['metrics'][metric]:>18.4f}"
+		print(row, flush=True)
 	print(f"CURRENT WINNER: {winner}", flush=True)
 	print(f"Config C abstention rate: {report['config_c']['calibration']['abstention_rate']:.2%}", flush=True)
 	print(f"Config D abstention rate: {report['config_d']['calibration']['abstention_rate']:.2%}", flush=True)
+	if has_e:
+		print(
+			f"Config E (Cascade Router) fast-path rate: {report['config_e']['fast_path_rate']:.2%} | "
+			f"escalated rate: {report['config_e']['escalated_rate']:.2%}",
+			flush=True,
+		)
 	pool_diagnostic = report["config_c"]["pool_diagnostic"]
 	print(
 		"Relevant-in-top-20 diagnostic: "
