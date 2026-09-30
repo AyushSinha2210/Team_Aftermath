@@ -129,10 +129,13 @@ def predict_batches(
 		return np.array([], dtype=float)
 
 	if hasattr(model, "predict"):
-		return np.asarray(
-			model.predict(pairs, batch_size=batch_size, show_progress_bar=False),
-			dtype=float,
-		)
+		try:
+			return np.asarray(
+				model.predict(pairs, batch_size=batch_size, show_progress_bar=False),
+				dtype=float,
+			)
+		except TypeError:
+			return np.asarray(model.predict(pairs), dtype=float)
 
 	# Callable fallback (e.g. mock models in test harness)
 	scores: List[float] = []
