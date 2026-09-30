@@ -11,6 +11,7 @@ venv/
 Thumbs.db
 *.pdf
 *.docx
+!LangAI3.0_AI_Disclosure.docx
 *.doc
 /WorkDone.pdf
 !WorkDone.pdf
