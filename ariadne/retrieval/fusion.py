@@ -91,3 +91,48 @@ def convex_score_fusion(
 
     ordered = sorted(fused_scores.items(), key=lambda item: (-item[1], item[0]))
     return ordered if limit is None else ordered[:limit]
+
+
+def linear_decay_fusion(
+    rankings: Sequence[Sequence[tuple[str, float]]],
+    *,
+    weights: Sequence[float] | None = None,
+    decay_rate: float = 0.05,
+    limit: int | None = None,
+) -> list[tuple[str, float]]:
+    """Combines rankings with linear rank decay scoring.
+
+    Formula: S(d) = sum_i w_i * max(0.0, 1.0 - decay_rate * (rank - 1))
+
+    Args:
+        rankings: Sequence of ranked (doc_id, score) lists.
+        weights: Optional weights per ranking list.
+        decay_rate: Rate of score decrease per subsequent rank.
+        limit: Optional maximum count of candidates to return.
+
+    Returns:
+        Sorted list of (doc_id, fused_score) tuples.
+    """
+    if decay_rate <= 0 or (limit is not None and limit < 0):
+        raise ValueError("decay_rate must be positive and limit must be nonnegative")
+    if weights is None:
+        weights = [1.0] * len(rankings)
+    if len(weights) != len(rankings) or any(weight < 0 for weight in weights):
+        raise ValueError("Supply one nonnegative weight per ranking")
+
+    scores: dict[str, float] = defaultdict(float)
+    best_rank: dict[str, int] = {}
+
+    for ranking, weight in zip(rankings, weights):
+        seen: set[str] = set()
+        for rank, (doc_id, _) in enumerate(ranking, start=1):
+            if doc_id in seen:
+                continue
+            seen.add(doc_id)
+            score_contrib = max(0.0, 1.0 - decay_rate * (rank - 1))
+            scores[doc_id] += weight * score_contrib
+            best_rank[doc_id] = min(best_rank.get(doc_id, rank), rank)
+
+    ordered = sorted(scores.items(), key=lambda item: (-item[1], best_rank[item[0]], item[0]))
+    return ordered if limit is None else ordered[:limit]
+
