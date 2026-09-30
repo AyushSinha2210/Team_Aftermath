@@ -6,9 +6,9 @@
 ## Project Overview
 
 **Ariadne** is a high-performance, CPU-efficient code retrieval system built on the CoIR `apps` benchmark. It combines:
-1. **Contrastive Fine-Tuned Bi-Encoder** (Person A - Critical Path): Lightweight, CPU-friendly embeddings optimized on code retrieval.
-2. **Hybrid Retrieval with BM25 + Reciprocal Rank Fusion** (Person B): Combining dense semantic search with sparse lexical matching.
-3. **Cross-Encoder Reranking & Confidence Calibration** (Person C): High-precision shortlist scoring with score-spread abstention and AST structural analysis.
+1. **Contrastive Fine-Tuned Bi-Encoder** (Person A - Critical Path): Lightweight, CPU-friendly embeddings optimized on code retrieval (`NDCG@10 = 0.7737`).
+2. **Hybrid Retrieval with CodeBM25 + Calibrated Fusion** (Person B): Code-aware identifier tokenizer with camelCase/snake_case decomposition, AST term weighting, and calibrated RRF / convex score combination.
+3. **Confidence-Gated Cascade Router & AST Reranking** (Person C): Dynamic score-margin routing (`CascadeRouter`) that preserves confident dense rankings while escalating ambiguous queries to cross-encoders and AST structural call-graph analysis.
 4. **Codebase Versioning & Evolutionary Retrieval** (Person D): Function-level hashing, incremental indexing, and cross-commit near-duplicate deduplication.
 
 ---
