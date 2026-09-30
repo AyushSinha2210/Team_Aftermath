@@ -1,0 +1,63 @@
+{
+  "title": "Ariadne Day 4-5 Reranking Checkpoint Evaluation",
+  "timestamp": "20260930_102058",
+  "evaluation_split": "valid (data/raw/valid)",
+  "num_queries": 50,
+  "num_candidates": 500,
+  "models": {
+    "config_a": {
+      "name": "Config A (dense retrieval only)",
+      "metrics": {
+        "ndcg@10": 0.7391292012176285,
+        "mrr@10": 0.7065,
+        "recall@1": 0.64,
+        "recall@5": 0.82,
+        "recall@10": 0.84
+      }
+    },
+    "config_c": {
+      "name": "Config C (dense + cross-encoder reranking + calibration)",
+      "metrics": {
+        "ndcg@10": 0.6118629550184764,
+        "mrr@10": 0.5531031746031746,
+        "recall@1": 0.44,
+        "recall@5": 0.68,
+        "recall@10": 0.8
+      },
+      "calibration": {
+        "abstention_count": 27,
+        "abstention_rate": 0.54
+      },
+      "pool_diagnostic": {
+        "queries_with_relevant_in_rerank_pool": 42,
+        "reranked_top10_fraction": 0.9523809523809523,
+        "original_top10_fraction": 1.0,
+        "original_best_rank_mean": 1.619047619047619
+      }
+    },
+    "config_b": {
+      "name": "Config B (dense + BM25 fusion)",
+      "metrics": {
+        "ndcg@10": 0.5975865373481155,
+        "mrr@10": 0.5465555555555555,
+        "recall@1": 0.46,
+        "recall@5": 0.7,
+        "recall@10": 0.76
+      }
+    },
+    "config_d": {
+      "name": "Config D (dense + BM25 fusion + cross-encoder reranking + calibration)",
+      "metrics": {
+        "ndcg@10": 0.5739765691769896,
+        "mrr@10": 0.5021666666666667,
+        "recall@1": 0.36,
+        "recall@5": 0.72,
+        "recall@10": 0.8
+      },
+      "calibration": {
+        "abstention_count": 17,
+        "abstention_rate": 0.34
+      }
+    }
+  }
+}
