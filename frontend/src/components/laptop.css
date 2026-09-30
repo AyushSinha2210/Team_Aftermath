@@ -1,0 +1,10 @@
+.intro-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--bg); }
+.intro-skip { position: absolute; right: 32px; top: 26px; font-size: 11px; z-index: 2; }
+.laptop-scene { position: relative; width: min(620px, 80vw); perspective: 1200px; transform-style: preserve-3d; }
+.laptop-lid { position: relative; background: var(--border); border: 1px solid var(--text-muted); border-radius: 16px 16px 5px 5px; padding: 18px 13px 13px; transform-origin: center bottom; transform-style: preserve-3d; backface-visibility: hidden; }
+.laptop-screen { background: var(--bg); overflow: hidden; border-radius: 5px; height: 340px; }
+.laptop-base { position: absolute; width: 108%; height: 120px; left: -4%; background: linear-gradient(var(--border), var(--surface)); border: 1px solid var(--text-muted); border-radius: 5px 5px 18px 18px; transform: rotateX(65deg); transform-origin: center top; }
+.keyboard-deck { height: 55px; margin: 10px 35px; border: 1px solid var(--text-muted); border-radius: 5px; opacity: .25; background: repeating-linear-gradient(90deg, transparent 0 24px, var(--text-muted) 24px 25px); }
+.trackpad { width: 90px; height: 25px; margin: auto; border: 1px solid var(--text-muted); opacity: .3; border-radius: 4px; }
+.seam-glow { position: absolute; height: 90px; width: 100%; bottom: -45px; z-index: -1; background: radial-gradient(ellipse, var(--gold-dim), transparent 70%); }
+@media (max-width: 700px) { .laptop-scene { width: 90vw; } .laptop-screen { height: 340px; } .hero-embedded .hero-title { font-size: 35px; } }
