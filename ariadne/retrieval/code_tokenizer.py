@@ -9,9 +9,10 @@ from __future__ import annotations
 import re
 from typing import List, Set, Sequence
 
-# Precompiled regex patterns for high-throughput tokenization
-_CAMEL_SPLIT_REGEX = re.compile(r"([a-z0-9])([A-Z])")
-_UPPER_SPLIT_REGEX = re.compile(r"([A-Z]+)([A-Z][a-z0-9])")
+_DIGIT_LETTER_REGEX = re.compile(r"([a-zA-Z])(\d+)")
+_LETTER_DIGIT_REGEX = re.compile(r"(\d+)([a-zA-Z])")
+_UPPER_SPLIT_REGEX = re.compile(r"([A-Z]{2,})([A-Z][a-z])")
+_CAMEL_SPLIT_REGEX = re.compile(r"([a-z\d])([A-Z])")
 _PUNCT_SPLIT_REGEX = re.compile(r"[^a-zA-Z0-9_]")
 _UNDERSCORE_SPLIT_REGEX = re.compile(r"_+")
 _WHITESPACE_REGEX = re.compile(r"\s+")
@@ -30,13 +31,15 @@ COMMON_CODE_KEYWORDS: Set[str] = {
 def split_identifier(identifier: str) -> List[str]:
     """Splits a programming identifier into constituent sub-tokens.
 
-    Handles snake_case, camelCase, PascalCase, and acronym sequences.
+    Handles snake_case, camelCase, PascalCase, acronyms, and digit boundaries.
 
     Examples:
         >>> split_identifier("is_valid_email")
         ['is', 'valid', 'email', 'is_valid_email']
         >>> split_identifier("getHTTPResponseCode")
         ['get', 'http', 'response', 'code', 'gethttpresponsecode']
+        >>> split_identifier("OAuth2Token")
+        ['oauth', '2', 'token', 'oauth2token']
         >>> split_identifier("binary_search")
         ['binary', 'search', 'binary_search']
 
@@ -54,10 +57,12 @@ def split_identifier(identifier: str) -> List[str]:
     if not cleaned:
         return [identifier.lower()]
 
-    # Insert boundary for camelCase / PascalCase
-    s1 = _UPPER_SPLIT_REGEX.sub(r"\1_\2", cleaned)
-    s2 = _CAMEL_SPLIT_REGEX.sub(r"\1_\2", s1)
-    parts = [part.lower() for part in _UNDERSCORE_SPLIT_REGEX.split(s2) if part]
+    # Insert boundaries for digits and camelCase / acronyms
+    s = _DIGIT_LETTER_REGEX.sub(r"\1_\2", cleaned)
+    s = _LETTER_DIGIT_REGEX.sub(r"\1_\2", s)
+    s = _UPPER_SPLIT_REGEX.sub(r"\1_\2", s)
+    s = _CAMEL_SPLIT_REGEX.sub(r"\1_\2", s)
+    parts = [part.lower() for part in _UNDERSCORE_SPLIT_REGEX.split(s) if part]
 
     lower_full = cleaned.lower()
     results: List[str] = []
