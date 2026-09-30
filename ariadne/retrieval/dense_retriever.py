@@ -54,3 +54,35 @@ class DenseRetriever:
         candidates = np.flatnonzero(scores >= threshold)
         order = sorted(candidates, key=lambda i: (-float(scores[i]), self.ids[i]))
         return [(self.ids[i], float(scores[i])) for i in order[:count]]
+
+    def retrieve_vectors(self, vectors: np.ndarray, k: int = 50) -> list[list[tuple[str, float]]]:
+        """Performs batch retrieval over multiple query vectors via single matrix multiplication."""
+        if k <= 0 or self.embeddings is None:
+            return []
+        mat = np.asarray(vectors, dtype=np.float32)
+        if mat.ndim == 1:
+            mat = mat[None, :]
+        if mat.shape[1] != self.embeddings.shape[1]:
+            raise ValueError("Query embedding dimension differs from corpus embeddings")
+        norms = np.linalg.norm(mat, axis=1, keepdims=True)
+        normed_mat = mat / np.maximum(norms, 1e-12)
+        # Batch dot-product: (N_docs, D) @ (D, N_queries) -> (N_docs, N_queries)
+        score_matrix = self.embeddings @ normed_mat.T
+
+        results: list[list[tuple[str, float]]] = []
+        count = min(k, len(self.ids))
+        for q_idx in range(normed_mat.shape[0]):
+            scores = score_matrix[:, q_idx]
+            threshold = float(np.partition(scores, -count)[-count])
+            candidates = np.flatnonzero(scores >= threshold)
+            order = sorted(candidates, key=lambda i: (-float(scores[i]), self.ids[i]))
+            results.append([(self.ids[i], float(scores[i])) for i in order[:count]])
+        return results
+
+    def retrieve_batch(self, queries: list[str], k: int = 50) -> list[list[tuple[str, float]]]:
+        """Encodes and retrieves multiple queries in a single vectorized batch."""
+        if not queries or k <= 0 or self.embeddings is None:
+            return []
+        vectors = np.asarray(self.encoder(queries), dtype=np.float32)
+        return self.retrieve_vectors(vectors, k=k)
+
