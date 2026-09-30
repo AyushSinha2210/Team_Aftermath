@@ -89,4 +89,4 @@ bash scripts/deliver.sh --flush
 The flush pushes queued commits in order and records progress after each
 successful push. It does not force-push or modify the submission release tag.
 
-The three-page work report is in reports/work-done.docx and work-done.pdf.
+The three-page work report is in the repository root as `work done.docx`.
