@@ -7,7 +7,7 @@ React demo and browser API: see [frontend/README.md](frontend/README.md).
 > **Target Benchmark:** CoIR `apps` Code Retrieval & Search Benchmark  
 > **Platform & Hardware Budget:** Pure CPU Inference (<35M Parameters, ultra-low latency)  
 > **Official Submission Release Tag:** `PRISM_GENAI_HACKATHON_Y2026`  
-> **Demo Video (<= 5 min):** [Watch Demo Video Walkthrough](https://drive.google.com/file/d/1XQkDswdArvrEPRbPnKy_1sx3Bjozc2iH/view?usp=sharing) *(Google Drive)*  
+> **Demo Video (<= 5 min):** [Watch Demo Video Walkthrough](https://youtu.be/GGNuc_gDWHU) *(YouTube)* | [Drive Backup](https://drive.google.com/file/d/1XQkDswdArvrEPRbPnKy_1sx3Bjozc2iH/view?usp=sharing)  
 > **Presentation File:** [Ariadne_Team_Aftermath_Submission.pptx](Ariadne_Team_Aftermath_Submission.pptx)
 
 ---
