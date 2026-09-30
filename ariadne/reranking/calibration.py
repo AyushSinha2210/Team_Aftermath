@@ -173,3 +173,71 @@ def fit_temperature_scaling(
 	res = minimize_scalar(nll_obj, bounds=(0.05, 10.0), method="bounded")
 	return float(res.x) if res.success else init_temp
 
+
+class PlattCalibrator:
+	"""Parametric calibration via logistic regression (Platt scaling)."""
+
+	def __init__(self) -> None:
+		self.a: float = 1.0
+		self.b: float = 0.0
+		self.is_fitted: bool = False
+
+	def fit(self, scores: np.ndarray, labels: np.ndarray) -> PlattCalibrator:
+		"""Fits Platt scaling parameters a and b minimizing binary cross-entropy.
+
+		Args:
+			scores: 1D array of uncalibrated scores.
+			labels: 1D array of binary ground-truth labels {0, 1}.
+
+		Returns:
+			Self (fitted calibrator).
+		"""
+		from scipy.optimize import minimize
+
+		x = np.asarray(scores, dtype=float)
+		y = np.asarray(labels, dtype=float)
+
+		def nll(params: np.ndarray) -> float:
+			a, b = params
+			logits = np.clip(a * x + b, -50.0, 50.0)
+			p = 1.0 / (1.0 + np.exp(-logits))
+			eps = 1e-12
+			p_clipped = np.clip(p, eps, 1.0 - eps)
+			return float(-np.mean(y * np.log(p_clipped) + (1.0 - y) * np.log(1.0 - p_clipped)))
+
+		res = minimize(nll, x0=[1.0, 0.0], method="L-BFGS-B")
+		if res.success:
+			self.a, self.b = float(res.x[0]), float(res.x[1])
+		self.is_fitted = True
+		return self
+
+	def predict_proba(self, scores: np.ndarray) -> np.ndarray:
+		"""Predicts calibrated posterior probabilities P(y=1|score)."""
+		x = np.asarray(scores, dtype=float)
+		logits = np.clip(self.a * x + self.b, -50.0, 50.0)
+		return 1.0 / (1.0 + np.exp(-logits))
+
+
+class IsotonicCalibrator:
+	"""Non-parametric monotonic calibration via Isotonic Regression."""
+
+	def __init__(self) -> None:
+		from sklearn.isotonic import IsotonicRegression
+
+		self._ir = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0)
+		self.is_fitted: bool = False
+
+	def fit(self, scores: np.ndarray, labels: np.ndarray) -> IsotonicCalibrator:
+		"""Fits isotonic regression mapping scores monotonically to empirical frequencies."""
+		x = np.asarray(scores, dtype=float)
+		y = np.asarray(labels, dtype=float)
+		self._ir.fit(x, y)
+		self.is_fitted = True
+		return self
+
+	def predict_proba(self, scores: np.ndarray) -> np.ndarray:
+		"""Predicts calibrated probabilities via monotonic piecewise linear interpolation."""
+		x = np.asarray(scores, dtype=float)
+		return np.asarray(self._ir.predict(x), dtype=float)
+
+
