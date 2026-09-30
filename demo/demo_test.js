@@ -6,7 +6,8 @@
  *   node demo/demo_test.js
  *
  * To search this file in the frontend, restart the API with:
- *   python -m ariadne.frontend_api.server --repo ./demo
+ *   .\.venv\Scripts\python.exe -m ariadne.frontend_api.server --repo .\demo
+ * First-time Python 3.11 setup is documented in frontend/README.md.
  * Then open http://127.0.0.1:5173/?intro=off#demo and try:
  *   1. How is a user session verified before opening Bluetooth settings?
  *   2. Where is the settings://bluetooth/connections deeplink used?

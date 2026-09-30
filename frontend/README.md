@@ -28,6 +28,33 @@ Vite proxies /api for both dev and preview. `--mode hybrid` enables real
 BM25/RRF attribution; dense is the recommended default. The demo searches
 15 functions in the checked-in JavaScript voice-assistant sample.
 
+## Run the custom demo with PowerShell
+
+Use Python 3.11 in this checkout's virtual environment. The pinned Torch and
+Tree-sitter dependencies are not intended for the system Python 3.14.
+From the repository root, with uv installed:
+
+```powershell
+uv venv --python 3.11 .venv
+uv pip install --python .venv\Scripts\python.exe --index-strategy unsafe-best-match -r ariadne/frontend_api/requirements.txt
+.\.venv\Scripts\python.exe -m ariadne.frontend_api.server --repo .\demo
+```
+
+Once setup is complete, only the last command is needed. It uses the correct
+interpreter without requiring virtual-environment activation or changing
+PowerShell execution policy. Stop an existing API server on port 8765 with
+Ctrl+C in its terminal before starting the custom corpus. In another terminal:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Open http://127.0.0.1:5173/?intro=off#demo and use the queries in
+`demo/demo_test.js`. A `ModuleNotFoundError: tree_sitter` means the selected
+Python environment lacks the API requirements; install them into `.venv`
+and run its explicit interpreter as above.
+
 `/design-system` displays all tokens and interaction states. `/?intro=off`
 skips the laptop immediately. `VITE_DISABLE_INTRO=true npm run dev` disables
 it for a presentation; rebuild production assets after changing build-time
