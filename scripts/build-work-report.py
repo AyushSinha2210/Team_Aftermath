@@ -31,6 +31,9 @@ def make_report(commit_count):
     styles['Heading 1'].paragraph_format.space_before = Pt(14)
     styles['Heading 1'].paragraph_format.space_after = Pt(8)
     styles['Heading 2'].font.size = Pt(12)
+    # Remove any template paragraph rules, including Word's inherited title line.
+    for element in list(styles.element.iter(qn('w:pBdr'))):
+        element.getparent().remove(element)
     document.core_properties.author = 'Abhilash'
     document.core_properties.title = 'Work done'
     document.core_properties.subject = 'Ariadne frontend implementation and validation'
@@ -64,7 +67,9 @@ def make_report(commit_count):
     p('The official MTEB test result is separate from the smaller validation experiment. The frontend did not rerun either benchmark. Missing latency measurements are shown as not recorded, and the illustrative version edit is labeled accordingly.')
     table = document.add_table(rows=1, cols=4)
     table.autofit = False
-    widths = [2.2, 1.6, 1.0, 1.0]
+    widths = [2.1, 2.0, 1.2, 1.2]
+    for column, width in zip(table.columns, widths):
+        column.width = Inches(width)
     for cell, width in zip(table.rows[0].cells, widths):
         cell.width = Inches(width)
     for cell, label in zip(table.rows[0].cells, ['Evaluation', 'Scope', 'NDCG at 10', 'MRR at 10']):
@@ -78,7 +83,8 @@ def make_report(commit_count):
         for cell, value in zip(table.add_row().cells, row):
             cell.text = value
     for i, row in enumerate(table.rows):
-        for cell in row.cells:
+        for cell, width in zip(row.cells, widths):
+            cell.width = Inches(width)
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
             tcpr = cell._tc.get_or_add_tcPr()
             borders = OxmlElement('w:tcBorders')
@@ -117,6 +123,8 @@ def make_report(commit_count):
     h('Git delivery status')
     p(f'{commit_count} incremental commits are prepared on Abhilash, authored as abhi-s99 with abhilashsingh2005@gmail.com. Each completed unit goes through the Bash delivery script. The current GitHub login is atharvasheersh and has no push permission on the destination, so the commits are retained in an ordered local queue.')
     p('After signing in as abhi-s99 through GitHub CLI, run bash scripts/deliver.sh --flush from the repository root. It pushes every queued commit in order, records each success, and preserves remaining work if a push fails. The submission release tag is unchanged.')
+    for element in list(document.element.iter(qn('w:pBdr'))):
+        element.getparent().remove(element)
     document.save(ROOT / 'work done.docx')
     print(f"Created {ROOT / 'work done.docx'}")
 
