@@ -19,7 +19,12 @@ for path in [str(_workspace_root), str(_repo_root)]:
 	if path not in sys.path:
 		sys.path.insert(0, path)
 
-from ariadne.eval.metrics import evaluate_ranking
+from ariadne.eval.metrics import (
+	compute_mrr_at_k,
+	compute_ndcg_at_k,
+	compute_recall_at_k,
+	evaluate_ranking,
+)
 from ariadne.finetuning.embedder import encode
 from ariadne.reranking.calibration import calibrate
 from ariadne.reranking.cross_encoder import rerank
@@ -103,31 +108,27 @@ def _evaluate_ranked_orders(
 	query_ids: Sequence[str],
 	qrels: Dict[str, Set[str]],
 ) -> Dict[str, float]:
-	"""Evaluates per-query ID orders through the shared evaluate_ranking function."""
-	metric_names = ["ndcg@10", "mrr@10", "recall@1", "recall@5", "recall@10"]
-	per_query_metrics: List[Dict[str, float]] = []
+	"""Evaluates per-query ID orders directly without allocating synthetic matrices."""
+	ranks: List[int] = []
 	for query_id, ordered_ids in zip(query_ids, ranked_ids):
-		if query_id not in qrels or not ordered_ids:
+		relevant = {str(cid) for cid in qrels.get(str(query_id), set())}
+		if not relevant or not ordered_ids:
 			continue
-		candidate_count = len(ordered_ids)
-		query_vector = np.arange(candidate_count, 0, -1, dtype=np.float32)[None, :]
-		corpus_vectors = np.eye(candidate_count, dtype=np.float32)
-		per_query_metrics.append(
-			evaluate_ranking(
-				query_embeddings=query_vector,
-				corpus_embeddings=corpus_vectors,
-				query_ids=[query_id],
-				corpus_ids=list(ordered_ids),
-				qrels=qrels,
-				top_k=10,
-			)
-		)
+		found_rank = 11
+		for rank_idx, cid in enumerate(ordered_ids[:10], start=1):
+			if str(cid) in relevant:
+				found_rank = rank_idx
+				break
+		ranks.append(found_rank)
 
-	if not per_query_metrics:
-		return {name: 0.0 for name in metric_names}
+	if not ranks:
+		return {name: 0.0 for name in ["ndcg@10", "mrr@10", "recall@1", "recall@5", "recall@10"]}
 	return {
-		name: float(np.mean([metrics[name] for metrics in per_query_metrics]))
-		for name in metric_names
+		"ndcg@10": compute_ndcg_at_k(ranks, k=10),
+		"mrr@10": compute_mrr_at_k(ranks, k=10),
+		"recall@1": compute_recall_at_k(ranks, k=1),
+		"recall@5": compute_recall_at_k(ranks, k=5),
+		"recall@10": compute_recall_at_k(ranks, k=10),
 	}
 
 
@@ -280,11 +281,23 @@ def evaluate_checkpoint(
 		str(corpus_id): str(code)
 		for corpus_id, code in zip(corpus_ids, corpus_codes)
 	}
-	hybrid_pipeline = HybridPipeline(hybrid_corpus)
-	hybrid_rankings = [
-		hybrid_pipeline.retrieve(query, k=50)
-		for query in queries
-	]
+	# Pre-seed encoder with precomputed corpus embeddings to prevent redundant encoding
+	try:
+		hybrid_pipeline = HybridPipeline(
+			hybrid_corpus,
+			encoder=lambda texts: corpus_embeddings,
+		)
+	except TypeError:
+		hybrid_pipeline = HybridPipeline(hybrid_corpus)
+
+	hybrid_rankings = []
+	for i, query in enumerate(queries):
+		try:
+			ranking = hybrid_pipeline.retrieve(query, k=50, dense_vector=query_embeddings[i])
+		except TypeError:
+			ranking = hybrid_pipeline.retrieve(query, k=50)
+		hybrid_rankings.append(ranking)
+
 	config_b_ids = [
 		[str(candidate["id"]) for candidate in candidates]
 		for candidates in hybrid_rankings
@@ -293,6 +306,9 @@ def evaluate_checkpoint(
 	_print_fusion_rank_diagnostic(
 		query_ids, queries, config_a_ids, config_b_ids, qrels, hybrid_pipeline
 	)
+
+	# Shared score cache across Config C and Config D to avoid redundant cross-encoder inferences
+	score_cache: Dict[Tuple[str, str], float] = {}
 
 	config_c_ids: List[List[str]] = []
 	config_c_query_ids: List[str] = []
@@ -309,7 +325,10 @@ def evaluate_checkpoint(
 		candidate_ids = [str(candidate["id"]) for candidate in candidates[:50]]
 		try:
 			pre_rerank_pool_ids = [str(candidate["id"]) for candidate in candidates[:20]]
-			reranked_candidates = rerank(query, candidates[:50])
+			try:
+				reranked_candidates = rerank(query, candidates[:50], score_cache=score_cache)
+			except TypeError:
+				reranked_candidates = rerank(query, candidates[:50])
 			reranked_pool_ids = [str(candidate["id"]) for candidate in reranked_candidates[:20]]
 			assert set(pre_rerank_pool_ids) == set(reranked_pool_ids), (
 				f"Candidate membership drift for query_id={query_id!r}: "
@@ -361,7 +380,10 @@ def evaluate_checkpoint(
 		unit="query",
 	):
 		try:
-			reranked_candidates = rerank(query, candidates)
+			try:
+				reranked_candidates = rerank(query, candidates, score_cache=score_cache)
+			except TypeError:
+				reranked_candidates = rerank(query, candidates)
 			calibration_result = calibrate(reranked_candidates)
 			if verbose:
 				_print_calibration_diagnostic(

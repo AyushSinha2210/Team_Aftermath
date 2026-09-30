@@ -77,20 +77,24 @@ def load_cross_encoder() -> Any:
 	from sentence_transformers import CrossEncoder
 
 	logger.info("Loading cross-encoder model '%s' on device 'cpu'...", model_name)
-	_CACHED_MODEL = CrossEncoder(model_name, device="cpu")
+	_CACHED_MODEL = CrossEncoder(model_name, max_length=512, device="cpu")
 	_CACHED_MODEL_NAME = model_name
 	return _CACHED_MODEL
 
 
 def _truncate_text(model: Any, query: str, text: str) -> str:
 	"""Truncates candidate text to the model tokenizer's pair length when available."""
+	# Fast-path: short text safely under 512 tokens skips expensive tokenization
+	if len(query) + len(text) <= 1000:
+		return text
+
 	tokenizer = getattr(model, "tokenizer", None)
 	max_length = getattr(model, "max_length", None)
 	if max_length is None and tokenizer is not None:
 		max_length = getattr(tokenizer, "model_max_length", None)
 
 	if tokenizer is None or not isinstance(max_length, int) or max_length <= 0:
-		return text
+		return text[:1500]
 
 	encoded_query = tokenizer.encode(query, add_special_tokens=False)
 	available_tokens = max_length - len(encoded_query) - 3
@@ -105,12 +109,17 @@ def _truncate_text(model: Any, query: str, text: str) -> str:
 	return decoded or text[:1]
 
 
-def rerank(query: str, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def rerank(
+	query: str,
+	candidates: List[Dict[str, Any]],
+	score_cache: Optional[Dict[Tuple[str, str], float]] = None,
+) -> List[Dict[str, Any]]:
 	"""Reranks the configured top-k candidates with a CPU cross-encoder.
 
 	Args:
 		query: User query to score against candidate text.
 		candidates: Candidate dictionaries containing ``id``, ``text``, and ``fusion_score``.
+		score_cache: Optional dict mapping (query, doc_id) -> rerank_score to avoid recomputing.
 
 	Returns:
 		Reranked top-k candidates followed by the untouched remainder.
@@ -120,16 +129,27 @@ def rerank(query: str, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
 	config = load_config()
 	rerank_top_k = int(config.get("reranking", {}).get("rerank_top_k", len(candidates)))
-	reranked_candidates = candidates[:rerank_top_k]
+	reranked_candidates = [dict(c) for c in candidates[:rerank_top_k]]
 	remainder = candidates[rerank_top_k:]
-	model = load_cross_encoder()
-	pairs = [(query, _truncate_text(model, query, candidate["text"])) for candidate in reranked_candidates]
-	scores = model.predict(pairs)
 
-	scored_candidates = []
-	for candidate, score in zip(reranked_candidates, scores):
-		candidate["rerank_score"] = float(score)
-		scored_candidates.append(candidate)
+	# Check cache for any already-computed scores
+	unscored_candidates: List[Dict[str, Any]] = []
+	for candidate in reranked_candidates:
+		cache_key = (query, str(candidate["id"]))
+		if score_cache is not None and cache_key in score_cache:
+			candidate["rerank_score"] = score_cache[cache_key]
+		else:
+			unscored_candidates.append(candidate)
 
-	scored_candidates.sort(key=lambda candidate: candidate["rerank_score"], reverse=True)
-	return scored_candidates + remainder
+	if unscored_candidates:
+		model = load_cross_encoder()
+		pairs = [(query, _truncate_text(model, query, c["text"])) for c in unscored_candidates]
+		scores = model.predict(pairs)
+		for candidate, score in zip(unscored_candidates, scores):
+			s = float(score)
+			candidate["rerank_score"] = s
+			if score_cache is not None:
+				score_cache[(query, str(candidate["id"]))] = s
+
+	reranked_candidates.sort(key=lambda candidate: candidate["rerank_score"], reverse=True)
+	return reranked_candidates + remainder
