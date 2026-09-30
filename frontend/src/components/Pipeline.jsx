@@ -24,11 +24,12 @@ export default function Pipeline() {
   const ref = useRef(null);
   const reduced = useMotionPolicy();
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start 90%', 'end 75%'] });
-  const scaleX = useTransform(scrollYProgress, [0, 1], [0, 1]);
+  const revealX = useTransform(scrollYProgress, [0, 1], ['-100%', '0%']);
+  const contentX = useTransform(scrollYProgress, [0, 1], ['100%', '0%']);
   return <section ref={ref} className="section" id="pipeline">
     <p className="section-number">01 / The architecture</p>
     <h2>How a query becomes an answer</h2>
-    <div className="pipeline-viewport"><div className="pipeline-diagram"><PipelineDrawing /><motion.div className="trace-reveal" style={{ scaleX: reduced ? 1 : scaleX }} aria-hidden="true"><PipelineDrawing trace /></motion.div></div></div>
+    <div className="pipeline-viewport"><div className="pipeline-diagram"><PipelineDrawing /><motion.div className="trace-reveal" style={{ x: reduced ? '0%' : revealX }} aria-hidden="true"><motion.div style={{ x: reduced ? '0%' : contentX }}><PipelineDrawing trace /></motion.div></motion.div></div></div>
     <p className="section-note mono">CPU-only inference. No GPU required.</p>
     <p className="section-note pipeline-context">Available retrieval stages are shown above. The demo uses the recommended dense configuration; hybrid fusion is an optional API mode. Reranking is not enabled in this demo.</p>
   </section>;
