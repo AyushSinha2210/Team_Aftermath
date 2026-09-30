@@ -241,3 +241,49 @@ class IsotonicCalibrator:
 		return np.asarray(self._ir.predict(x), dtype=float)
 
 
+def estimate_confidence_interval(
+	scores: np.ndarray,
+	confidence_level: float = 0.95,
+	n_bootstrap: int = 1000,
+	random_state: Optional[int] = None,
+) -> Dict[str, float]:
+	"""Estimates bootstrap confidence interval for retrieval scores mean and median.
+
+	Args:
+		scores: 1D array of scores.
+		confidence_level: Desired coverage probability (e.g., 0.95).
+		n_bootstrap: Number of bootstrap resamples.
+		random_state: Seed for reproducibility.
+
+	Returns:
+		Dictionary containing mean, median, lower_bound, and upper_bound.
+	"""
+	arr = np.asarray(scores, dtype=float)
+	if arr.size == 0:
+		return {
+			"mean": 0.0,
+			"median": 0.0,
+			"lower_bound": 0.0,
+			"upper_bound": 0.0,
+		}
+
+	rng = np.random.default_rng(random_state)
+	resamples = rng.choice(arr, size=(n_bootstrap, arr.size), replace=True)
+	resampled_means = np.mean(resamples, axis=1)
+
+	alpha = 1.0 - confidence_level
+	lower_pct = 100.0 * (alpha / 2.0)
+	upper_pct = 100.0 * (1.0 - alpha / 2.0)
+
+	lower_bound = float(np.percentile(resampled_means, lower_pct))
+	upper_bound = float(np.percentile(resampled_means, upper_pct))
+
+	return {
+		"mean": float(np.mean(arr)),
+		"median": float(np.median(arr)),
+		"lower_bound": lower_bound,
+		"upper_bound": upper_bound,
+	}
+
+
+
