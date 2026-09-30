@@ -34,6 +34,7 @@ import streamlit as st
 import yaml
 
 from ariadne.finetuning.embedder import encode
+from ariadne.reranking.cascade_router import CascadeRouter
 from ariadne.reranking.structural.ast_parser import parse_repo
 from ariadne.reranking.structural.call_graph import (
     AmbiguousFunctionNameError,
@@ -41,6 +42,7 @@ from ariadne.reranking.structural.call_graph import (
     calls_within_depth,
     resolve_call_path,
 )
+from ariadne.retrieval.query_expansion import expand_code_query
 from ariadne.versioning.dedup import collapse_duplicates, get_dedup_threshold
 from ariadne.versioning.evolutionary_retrieval import rank_across_versions
 from ariadne.versioning.incremental_index import IncrementalIndex
@@ -349,8 +351,10 @@ def search(
     index: IncrementalIndex,
     top_k: int = 5,
     min_confidence_threshold: float = 0.20,
+    use_cascade: bool = False,
+    use_expansion: bool = False,
 ) -> Dict[str, Any]:
-    """Performs Config A (dense alone) retrieval against the indexed corpus.
+    """Performs retrieval against the indexed corpus with optional Cascade Routing and Query Expansion.
 
     Handles arbitrary user input robustly (empty, whitespace, very long text,
     special characters, non-English text) and degrades gracefully for nonsense
@@ -410,6 +414,9 @@ def search(
             "results": [],
         }
 
+    if use_expansion:
+        cleaned_query = expand_code_query(cleaned_query)
+
     try:
         query_embedding = encode([cleaned_query])[0]
     except Exception as exc:
@@ -419,29 +426,49 @@ def search(
             "top_score": 0.0,
             "message": f"Failed to encode query: {exc}",
             "results": [],
+            "routing_info": None,
         }
 
     # Dense retrieval alone: cosine similarity over L2-normalized embeddings
     cosine_scores = np.dot(corpus_embeddings, query_embedding)
     max_score = float(np.max(cosine_scores)) if len(cosine_scores) > 0 else 0.0
 
-    ranked_indices = np.argsort(cosine_scores)[::-1][:top_k]
+    ranked_indices = np.argsort(cosine_scores)[::-1][: max(top_k, 20)]
 
-    results: List[Dict[str, Any]] = []
+    initial_candidates: List[Dict[str, Any]] = []
     for rank, idx in enumerate(ranked_indices, start=1):
         doc_id = doc_ids[idx]
         doc = doc_lookup.get(doc_id, {"id": doc_id, "title": f"Snippet {doc_id}", "code": ""})
         score = float(cosine_scores[idx])
-        results.append(
+        initial_candidates.append(
             {
                 "rank": rank,
                 "id": doc_id,
                 "title": doc.get("title", f"Snippet {doc_id}"),
                 "score": score,
+                "fusion_score": score,
+                "text": doc.get("code", ""),
                 "code": doc.get("code", ""),
                 "query": doc.get("query", ""),
             }
         )
+
+    routing_info = None
+    final_candidates = initial_candidates
+    if use_cascade:
+        router = CascadeRouter(confidence_threshold=0.08)
+        route_res = router.route(cleaned_query, initial_candidates)
+        final_candidates = route_res["candidates"]
+        routing_info = {
+            "decision": route_res["decision"],
+            "margin": route_res["margin"],
+            "latency_ms": route_res["latency_ms"],
+        }
+
+    results: List[Dict[str, Any]] = []
+    for rank, cand in enumerate(final_candidates[:top_k], start=1):
+        cand["rank"] = rank
+        results.append(cand)
 
     is_strong = max_score >= min_confidence_threshold
     status = "success" if is_strong else "low_confidence"
@@ -457,6 +484,7 @@ def search(
         "top_score": max_score,
         "message": message,
         "results": results,
+        "routing_info": routing_info,
     }
 
 
@@ -502,14 +530,23 @@ def render_search_tab() -> None:
             value=default_val,
             placeholder="e.g. tree network traversal, regex pattern bug, prime numbers game...",
         )
-        col1, col2 = st.columns([1, 4])
+        col1, col2, col3 = st.columns([1, 2, 2])
         with col1:
             top_k = st.slider("Top Results (K)", min_value=1, max_value=20, value=5)
+        with col2:
+            routing_mode = st.selectbox(
+                "Routing Architecture",
+                ["Config A (Dense Alone)", "Config E (Confidence-Gated Cascade Router)"],
+                index=0,
+            )
+        with col3:
+            use_expansion = st.checkbox("Code Concept Expansion", value=False)
         submitted = st.form_submit_button("Search Codebase", type="primary")
 
     active_query = query if submitted else selected_example
 
     if active_query and active_query.strip():
+        use_cascade = "Cascade" in routing_mode
         with st.spinner("Searching with fine-tuned bi-encoder..."):
             search_response = search(
                 query=active_query,
@@ -517,7 +554,22 @@ def render_search_tab() -> None:
                 index=index,
                 top_k=top_k,
                 min_confidence_threshold=0.20,
+                use_cascade=use_cascade,
+                use_expansion=use_expansion,
             )
+
+        if search_response.get("routing_info"):
+            r_info = search_response["routing_info"]
+            if r_info["decision"] == "fast_path":
+                st.success(
+                    f"⚡ **Cascade Router Fast-Path:** Top-2 margin was **{r_info['margin']:.4f} >= 0.08**. "
+                    f"Reranking bypassed to preserve pure dense accuracy ({r_info['latency_ms']:.1f}ms)."
+                )
+            else:
+                st.warning(
+                    f"⚡ **Cascade Router Escalation:** Ambiguous margin detected (**{r_info['margin']:.4f} < 0.08**). "
+                    f"Escalated to second-tier cross-encoder reranker ({r_info['latency_ms']:.1f}ms)."
+                )
 
         status = search_response["status"]
         results = search_response["results"]
