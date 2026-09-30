@@ -1,4 +1,4 @@
-"""Handoff verification test for Person B integration.
+"""Integration verification test for bi-encoder embedding pipeline.
 
 Verifies that:
 1. `encode()` signature is identical to Phase 2.
@@ -17,7 +17,7 @@ from ariadne.finetuning.embedder import encode, get_embedder, load_config
 
 
 def test_encode_signature_unchanged() -> None:
-    """Verifies that encode() signature matches Person B expectations."""
+    """Verifies that encode() signature matches downstream expectations."""
     sig = inspect.signature(encode)
     params = list(sig.parameters.keys())
     assert params[0] == "texts", "First parameter must be 'texts'"
@@ -56,11 +56,11 @@ def test_config_published_final_checkpoint() -> None:
 
 
 if __name__ == "__main__":
-    print("Running Person B handoff verification...")
+    print("Running bi-encoder handoff verification...")
     test_encode_signature_unchanged()
     print("✓ encode() signature verified (drop-in compatibility).")
     test_encode_runs_on_sample_batch()
     print("✓ 5 sample texts encoded to shape (5, 384), float32, L2-normalized.")
     test_config_published_final_checkpoint()
     print("✓ final_checkpoint verified in config.yaml.")
-    print("Person B handoff complete and verified successfully!")
+    print("Bi-encoder integration complete and verified successfully!")

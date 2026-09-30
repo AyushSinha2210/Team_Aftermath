@@ -1,5 +1,5 @@
 # ==============================================================================
-# Bi-Encoder Specific Training Configuration (Person A)
+# Bi-Encoder Specific Training Configuration
 # Optimized for CPU inference efficiency and contrastive retrieval accuracy
 # ==============================================================================
 

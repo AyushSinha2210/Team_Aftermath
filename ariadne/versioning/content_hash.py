@@ -1,4 +1,4 @@
-"""Content hashing module to detect changed vs unchanged functions across commits (owned by Person D)."""
+"""Content hashing module to detect changed vs unchanged functions across commits."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Incremental indexer that re-embeds only changed hashes across code versions (owned by Person D).
+"""Incremental indexer that re-embeds only changed hashes across code versions.
 
 Persistence format:
     This module uses Python's standard `pickle` protocol to serialize the cache dictionary

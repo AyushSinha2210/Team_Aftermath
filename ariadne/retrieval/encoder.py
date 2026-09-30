@@ -10,7 +10,7 @@ from mteb.models.model_meta import ModelMeta
 
 
 class PrePostPipelineEncoder(AbsEncoder):
-    """Wrap Person A's encoder for MTEB's batch-oriented embedding API.
+    """Wrap the bi-encoder for MTEB's batch-oriented embedding API.
 
     BM25 and rank fusion cannot be expressed as independent embeddings. The
     hybrid SearchProtocol adapter lives in ``mteb_search.py``.

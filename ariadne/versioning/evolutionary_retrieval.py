@@ -1,4 +1,4 @@
-"""Evolutionary retrieval across multiple codebase versions and commit histories (owned by Person D).
+"""Evolutionary retrieval across multiple codebase versions and commit histories.
 
 This module provides cross-version query resolution and ranking without duplicate inflation
 by querying canonical deduplicated cluster representatives, alongside version-diff ranking analytics.

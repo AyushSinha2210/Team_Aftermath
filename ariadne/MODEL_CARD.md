@@ -1,4 +1,4 @@
-# Model Card: Ariadne Bi-Encoder (Person A Handoff)
+# Model Card: Ariadne Bi-Encoder
 
 ## 1. Model Overview
 - **Architecture**: Bi-Encoder dense text/code representation model based on `sentence-transformers/all-MiniLM-L6-v2`.
@@ -9,7 +9,7 @@
 
 ---
 
-## 2. Drop-in Integration Contract for Person B (and Persons C & D)
+## 2. Drop-in Integration Contract for Downstream Pipelines
 
 The `encode()` interface is **100% backward-compatible** and has **never changed** since Phase 2:
 
@@ -28,7 +28,7 @@ code_vectors = encode(code_snippets)
 # Returns: np.ndarray of shape (2, 384), float32, L2-normalized
 ```
 
-> **Zero Training Code Dependency**: Person B can clone the repository, call `encode()`, and immediately use the fine-tuned bi-encoder without ever reading or importing `train.py`.
+> **Zero Training Code Dependency**: Downstream pipelines can call `encode()` and immediately use the fine-tuned bi-encoder without importing `train.py`.
 
 ---
 
@@ -58,5 +58,5 @@ Evaluated against the 500-sample validation split (`data/raw/valid`):
 
 ## 5. Known Limitations & Recommendations for Downstream Modules
 1. **Context Window**: Max sequence length is 512 tokens. Extremely long monolithic scripts (>2,000 lines) should be chunked by function/class boundaries before encoding.
-2. **Complementary Sparse Retrieval**: While dense semantic retrieval reaches 87.4% Recall@10, exact identifier / symbol matches (e.g. `lowest_temp`, specific variable names) benefit heavily from reciprocal rank fusion (RRF) with Person B's BM25 retriever.
-3. **Cross-Encoder Calibration**: Person C's cross-encoder reranker should take the top-50 candidates output by hybrid retrieval and score them for final ranking.
+2. **Complementary Sparse Retrieval**: While dense semantic retrieval reaches 87.4% Recall@10, exact identifier / symbol matches (e.g. `lowest_temp`, specific variable names) benefit heavily from reciprocal rank fusion (RRF) with the BM25 retriever.
+3. **Cross-Encoder Calibration**: The cross-encoder reranker should take the top-50 candidates output by hybrid retrieval and score them for final ranking.

@@ -1,6 +1,6 @@
 # Team Aftermath — Ariadne: Agentic Code Intelligence
 
-React demo and Browser API: see [frontend/README.md](frontend/README.md).
+React demo and browser API: see [frontend/README.md](frontend/README.md).
 
 > **Samsung PRISM GenAI Hackathon (3rd Edition)**  
 > **Theme 01:** Agentic Code Intelligence  
@@ -50,7 +50,7 @@ SAMSUNG PRISM HACKATHON -- THEME 01: AGENTIC CODE INTELLIGENCE
 
 ---
 
-## 2. System Architecture & Benchmark Results
+## 2. Benchmark Results & Validation
 
 **Ariadne** is a multi-stage, CPU-optimized agentic code intelligence engine combining contrastive representation learning, code-aware sparse indexing, confidence-gated cascade routing, AST structural analysis, and incremental git-commit versioning.
 
@@ -69,7 +69,7 @@ SAMSUNG PRISM HACKATHON -- THEME 01: AGENTIC CODE INTELLIGENCE
 
 ---
 
-## 2. System Architecture
+## 3. System Architecture
 
 Ariadne employs a multi-tiered architecture that balances vector semantic relevance, exact lexical precision, structural AST graph topology, and real-time developer iteration.
 
@@ -133,15 +133,15 @@ Ariadne employs a multi-tiered architecture that balances vector semantic releva
 
 ---
 
-## 3. Four Core Architectural Pillars
+## 4. Four Core Architectural Pillars
 
-### Pillar A: Contrastive Representation Learning (Person A — Critical Path)
+### Pillar A: Contrastive Representation Learning
 - **Model Backbone**: CPU-optimized `all-MiniLM-L6-v2` (<35M parameters, 384 embedding dimensions).
 - **Hard Negative Mining**: Multi-round negative generation pairing lexical BM25 false positives with iterative dense margin mining ($\text{margin} = 0.10$).
 - **Loss Formulation**: `MultipleNegativesRankingLoss` with temperature scaling ($\text{scale} = 20.0$), AdamW optimizer ($\text{lr} = 2.0\times 10^{-5}$, weight decay $0.01$).
 - **Validation**: Outperforms off-the-shelf sentence transformers by **+18.2% NDCG@10**.
 
-### Pillar B: Code-Aware Hybrid Retrieval (Person B)
+### Pillar B: Code-Aware Hybrid Retrieval
 - **Code Tokenizer (`code_tokenizer.py`)**: Custom regex tokenizer splitting composite identifiers (`getUserById`, `parse_jwt_token`, `ASTVisitor123`) into sub-words while retaining verbatim identifiers.
 - **`CodeBM25Retriever` (`code_bm25.py`)**: AST identifier boosting (+50% weight on function/class definitions) with syntax keyword penalties to eliminate query noise.
 - **Calibrated Fusion (`fusion.py`, `adaptive_weights.py`)**:
@@ -150,7 +150,7 @@ Ariadne employs a multi-tiered architecture that balances vector semantic releva
   - Linear rank decay fusion (`linear_decay_fusion`) and distribution normalizers (`z_score_normalize`, `sigmoid_normalize`).
 - **Code HyDE (`code_hyde.py`, `hyde_retriever.py`)**: Hypothetical code generation bridging natural language descriptions to code embedding space via centroid aggregation.
 
-### Pillar C: Confidence-Gated Cascade Routing & Structural Analysis (Person C)
+### Pillar C: Confidence-Gated Cascade Routing & Structural Analysis
 - **Cascade Router (`cascade_router.py`)**: Computes top-2 dense margin $\Delta = s_1 - s_2$. When $\Delta \ge 0.08$, candidate order is confident and skips expensive cross-encoders, preventing MS-MARCO syntactic bias from degrading valid code hits.
 - **Cross-Encoder Optimization (`cross_encoder.py`)**: Batch chunked inference (`predict_batches`) with cross-config score caching.
 - **AST Preprocessor & Structural Call Graph (`call_graph.py`, `ast_enricher.py`)**:
@@ -160,7 +160,7 @@ Ariadne employs a multi-tiered architecture that balances vector semantic releva
 - **Statistical Calibration (`calibration.py`, `bootstrap_metrics.py`)**:
   - Platt scaling, Isotonic regression, Expected Calibration Error (ECE), and bootstrap confidence intervals.
 
-### Pillar D: Versioning, Evolutionary Indexing & Demo (Person D)
+### Pillar D: Versioning, Evolutionary Indexing & Interactive Demo
 - **Incremental Indexer (`incremental_index.py`, `incremental_sparse.py`)**:
   - SHA-256 function-level chunk hashing.
   - Sub-second incremental updates: unchanged code reuses cached float32 vectors directly (53s full build $\rightarrow$ 0.8s incremental update).
@@ -173,7 +173,7 @@ Ariadne employs a multi-tiered architecture that balances vector semantic releva
 
 ---
 
-## 4. Repository Layout
+## 5. Repository Layout
 
 ```text
 Team_Aftermath/
@@ -187,13 +187,13 @@ Team_Aftermath/
 │   │   ├── download.sh                    # Automated dataset downloader
 │   │   ├── raw/                           # Train/valid/test JSONL splits
 │   │   └── processed/                     # Preprocessed tokenized datasets
-│   ├── finetuning/                        # Person A: Bi-encoder contrastive training
+│   ├── finetuning/                        # Bi-encoder contrastive training
 │   │   ├── embedder.py                    # Unified CPU encode() pipeline
 │   │   ├── train.py                       # Contrastive fine-tuning loop
 │   │   ├── hard_negative_mining.py        # BM25 + dense hard negative mining
 │   │   ├── validate.py                    # Checkpoint validation
 │   │   └── checkpoints/best_biencoder/    # Pinned fine-tuned bi-encoder weights
-│   ├── retrieval/                         # Person B: Hybrid retrieval & indexing
+│   ├── retrieval/                         # Hybrid retrieval & indexing
 │   │   ├── dense_retriever.py             # Vector store with BLAS batch retrieval & LRU cache
 │   │   ├── sparse_retriever.py            # Code-aware BM25 sparse retriever
 │   │   ├── code_bm25.py                   # AST-boosted BM25 retriever
@@ -206,7 +206,7 @@ Team_Aftermath/
 │   │   ├── pipeline.py                    # Unified HybridPipeline interface
 │   │   ├── compressed_index.py            # VByte & delta-gap posting list compression
 │   │   └── fingerprint.py                 # MD5 code deduplication engine
-│   ├── reranking/                         # Person C: Reranking, cascade & structural AST
+│   ├── reranking/                         # Reranking, cascade & structural AST
 │   │   ├── cascade_router.py              # Confidence-gated CascadeRouter
 │   │   ├── cross_encoder.py               # Batch cross-encoder with score caching
 │   │   ├── calibration.py                 # Temperature, Platt, Isotonic & ECE calibration
@@ -217,7 +217,7 @@ Team_Aftermath/
 │   │       ├── ast_complexity.py          # Cyclomatic complexity & nesting depth
 │   │       ├── call_graph.py              # Bidirectional BFS & PageRank centrality
 │   │       └── modularity.py              # Label Propagation community detection
-│   ├── versioning/                        # Person D: Versioning, incremental indexing & demo
+│   ├── versioning/                        # Versioning, incremental indexing & demo
 │   │   ├── incremental_index.py           # Persistent vector cache with hash diffing
 │   │   ├── incremental_sparse.py          # Dynamic online inverted index
 │   │   ├── content_hash.py                # Normalized SHA-256 chunk hashing
@@ -238,7 +238,7 @@ Team_Aftermath/
 
 ---
 
-## 5. Quick Start & Execution Guide
+## 6. Quick Start & Execution Guide
 
 ### 5.1 Environment Setup
 ```bash
@@ -308,7 +308,7 @@ Access the web prototype at `http://localhost:8501`.
 
 ---
 
-## 6. Engineering & Performance Highlights
+## 7. Engineering & Performance Highlights
 
 - **100% CPU-Friendly**: Designed for zero-GPU environments, delivering P50 latency <15 ms.
 - **Fast-Path Cascade Routing**: Eliminates 58% of cross-encoder inference calls with zero loss in retrieval precision.
@@ -318,7 +318,7 @@ Access the web prototype at `http://localhost:8501`.
 
 ---
 
-## 7. License & Credits
+## 8. License & Credits
 
 Built by **Team Aftermath** for the **Samsung PRISM GenAI Hackathon (3rd Edition)**.
 Distributed under the Apache 2.0 License.

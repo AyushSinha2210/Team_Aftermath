@@ -53,7 +53,7 @@ Dense Retrieval (Config A)       Sparse Retrieval (CodeBM25)
 
 ## 3. Core Architectural Components
 
-### 3.1 Contrastive Fine-Tuned Bi-Encoder (Person A - Critical Path)
+### 3.1 Contrastive Fine-Tuned Bi-Encoder
 - **Base**: `all-MiniLM-L6-v2` (<35M parameters, CPU-first inference).
 - **Optimization**: Multi-stage negative mining (In-batch -> BM25 hard negatives -> Iterative dense false-positive mining).
 - **Validation**: Achieves **`0.7737` NDCG@10** on the CoIR `apps` benchmark.
@@ -71,7 +71,7 @@ Dense Retrieval (Config A)       Sparse Retrieval (CodeBM25)
 - Tree-sitter and AST-based extraction of function signatures, docstrings, and intra-module call dependencies.
 - Prefixes code snippets with structural interface headers (`# SIGNATURE`, `# SUMMARY`, `# CALLS`).
 
-### 3.5 Code Versioning & Incremental Indexing (Person D)
+### 3.5 Code Versioning & Incremental Indexing
 - SHA-256 function-level chunk hashing.
 - Unchanged chunks reuse precomputed dense embeddings directly from cache (500-snippet benchmark: 53.26s full rebuild -> <1s incremental update).
 - Cosine-similarity thresholding collapses near-duplicate functions across git commits.

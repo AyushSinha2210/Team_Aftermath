@@ -6,7 +6,7 @@ Ariadne is a specialized, CPU-friendly code retrieval system built on the CoIR `
 
 ---
 
-## Repository Structure & Team Ownership
+## Repository Structure & Component Architecture
 
 ```
 ariadne/
@@ -19,27 +19,27 @@ ariadne/
 │   ├── raw/
 │   ├── processed/
 │   └── download.sh
-├── finetuning/                 # Person A: Bi-encoder fine-tuning (Critical Path)
+├── finetuning/                 # Bi-encoder fine-tuning (Critical Path)
 │   ├── train.py
 │   ├── hard_negative_mining.py
 │   ├── validate.py
 │   ├── configs/biencoder.yaml
 │   └── checkpoints/
-├── retrieval/                  # Person B: Hybrid retrieval & MTEB harness
+├── retrieval/                  # Hybrid retrieval & MTEB harness
 │   ├── encoder.py
 │   ├── dense_retriever.py
 │   ├── sparse_retriever.py
 │   ├── fusion.py
 │   ├── pipeline.py
 │   └── run_mteb_eval.py
-├── reranking/                  # Person C: Cross-encoder reranker & calibration
+├── reranking/                  # Cross-encoder reranker & calibration
 │   ├── cross_encoder.py
 │   ├── calibration.py
 │   ├── checkpoint_eval.py
 │   └── structural/
 │       ├── ast_parser.py
 │       └── call_graph.py
-├── versioning/                 # Person D: Versioning, incremental index & demo
+├── versioning/                 # Versioning, incremental index & demo
 │   ├── content_hash.py
 │   ├── incremental_index.py
 │   ├── dedup.py
@@ -79,7 +79,7 @@ ariadne/
 
 ## Module Usage & Developer API
 
-### Person A: Fine-Tuning & Embedder
+### Component 1: Fine-Tuning & Embedder
 ```python
 from ariadne.finetuning.embedder import encode
 
@@ -87,7 +87,7 @@ from ariadne.finetuning.embedder import encode
 embeddings = encode(["def quicksort(arr): ...", "class UserAuth: ..."])
 ```
 
-### Person B: Hybrid Retrieval & Pipeline
+### Component 2: Hybrid Retrieval & Pipeline
 The live hybrid pipeline accepts a mapping from stable document IDs to code text:
 ```python
 from ariadne.retrieval.pipeline import HybridPipeline
@@ -97,7 +97,7 @@ pipeline = HybridPipeline({"snippet-1": "def binary_search(items, target): ..."}
 top_50 = pipeline.retrieve("find an item in a sorted list", k=50, use_hyde=False)
 ```
 
-### Person C: Cascade Router & Cross-Encoder Reranking
+### Component 3: Cascade Router & Cross-Encoder Reranking
 ```python
 from ariadne.reranking.cascade_router import CascadeRouter
 from ariadne.reranking.cross_encoder import rerank
@@ -112,7 +112,7 @@ else:
     final_results = rerank("find an item in a sorted list", decision.candidates)
 ```
 
-### Person D: Incremental Indexing & Versioning
+### Component 4: Incremental Indexing & Versioning
 ```python
 from ariadne.versioning.incremental_index import IncrementalIndex
 

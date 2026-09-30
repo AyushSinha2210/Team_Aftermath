@@ -1,6 +1,6 @@
 """Run the official MTEB AppsRetrieval test task and save its real result.
 
-Configured for Locked Config A: Dense Retrieval Alone (using Person A's fine-tuned
+Configured for Locked Config A: Dense Retrieval Alone (using the fine-tuned
 bi-encoder checkpoint, best_biencoder) per RERANK_CARD.md's recommendation.
 """
 

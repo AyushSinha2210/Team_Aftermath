@@ -1,13 +1,12 @@
-# Rerank Card: Person 3 Handoff (Reranking + Calibration)
+# Rerank Card: Reranking & Calibration Module
 
 ## 1. Overview
 
 This module reranks a fused candidate shortlist using a CPU cross-encoder, then
-calibrates confidence to flag low-confidence rankings. Consumes output from Person 2's
-retrieval pipeline (once available); produces output for Person 4's demo attribution
-panel and ablation table.
+calibrates confidence to flag low-confidence rankings. Consumes output from the
+retrieval pipeline; produces output for the demo attribution panel and ablation table.
 
-**Status as of this handoff: functionally complete, tested, and validated against Person 1's confirmed fine-tuned checkpoint (`best_biencoder`).**
+**Status: functionally complete, tested, and validated against the confirmed fine-tuned checkpoint (`best_biencoder`).**
 
 ## 2. Function Signatures
 
@@ -54,10 +53,10 @@ Each candidate dict, after passing through `rerank()`, carries:
 
 | Field | Type | Source | Notes |
 |---|---|---|---|
-| `id` | str | Person 2 (fusion) | Candidate identifier |
-| `text` | str | Person 2 (fusion) | Candidate code snippet |
-| `fusion_score` | float | Person 2 (fusion) | Original dense+BM25 RRF score, preserved |
-| `rerank_score` | float | Person 3 (this module) | Raw cross-encoder logit, unbounded |
+| `id` | str | Hybrid retrieval (fusion) | Candidate identifier |
+| `text` | str | Hybrid retrieval (fusion) | Candidate code snippet |
+| `fusion_score` | float | Hybrid retrieval (fusion) | Original dense+BM25 RRF score, preserved |
+| `rerank_score` | float | Cross-encoder module | Raw cross-encoder logit, unbounded |
 
 The `calibrate()` result (separate dict, not merged into candidates) carries
 `should_abstain`, `confidence_variance`, `top_candidate` as described above.
@@ -69,7 +68,7 @@ architecture diagram's attribution requirement.
 ## 4. Known Findings & Limitations (read before building on this)
 
 1. Full 500-query valid split, REAL FINE-TUNED CHECKPOINT (best_biencoder, matches
-   Person 1's reported NDCG@10=0.7737 on valid exactly -- confirms this evaluation
+   reported NDCG@10=0.7737 on valid exactly -- confirms this evaluation
    harness is correct):
 
    | Config | NDCG@10 | MRR@10 | Recall@1 | Notes |
@@ -90,7 +89,7 @@ architecture diagram's attribution requirement.
 2. **`CodeBM25` Tokenization**:
    Replaced whitespace splitting with camelCase/snake_case identifier decomposition and AST symbol isolation, narrowing the lexical gap on programming identifiers.
 3. **All numbers above are evaluated on the confirmed fine-tuned checkpoint** (`best_biencoder`),
-   matching Person 1's published validation results.
+   matching published validation results.
 
 ## 5. What to Expect From This Module for the Demo
 

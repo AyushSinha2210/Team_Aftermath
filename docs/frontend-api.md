@@ -2,7 +2,7 @@
 
 The repository has a Streamlit UI, not a browser JSON API. Its `search` function
 returns status, results and dense cosine scores. The new loopback HTTP bridge
-uses Person D's `IncrementalIndex` and shared encoder directly, avoiding a
+uses the `IncrementalIndex` and shared encoder directly, avoiding a
 Streamlit runtime dependency. Dense mode follows the existing recommended
 configuration; optional hybrid mode calls `HybridPipeline.retrieve`.
 

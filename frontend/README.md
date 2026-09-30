@@ -1,6 +1,6 @@
 # Ariadne frontend
 
-React, Vite, Tailwind and Framer Motion frontend implemented by Abhilash.
+React, Vite, Tailwind and Framer Motion frontend.
 Self-hosted Fraunces, Manrope and JetBrains Mono fonts work without Google Fonts.
 
 ## Run with Git Bash

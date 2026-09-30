@@ -1,4 +1,4 @@
-"""Cosine-similarity retrieval over Person A's normalized code embeddings."""
+"""Cosine-similarity retrieval over normalized code embeddings."""
 
 from __future__ import annotations
 

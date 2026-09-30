@@ -1,7 +1,7 @@
-"""Person B Integration Demo: Using Person A's fine-tuned Bi-Encoder for Dense Retrieval.
+"""Dense Retrieval Integration Demo: Using fine-tuned Bi-Encoder for Retrieval.
 
-Demonstrates that Person B can clone the repository and execute dense retrieval
-directly via `from ariadne.finetuning.embedder import encode` without importing
+Demonstrates executing dense retrieval directly via
+`from ariadne.finetuning.embedder import encode` without importing
 any training modules.
 """
 
@@ -18,17 +18,17 @@ for p in [str(_workspace_root), str(_repo_root)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-# PERSON B'S DROP-IN IMPORT
+# DROP-IN IMPORT
 from ariadne.finetuning.embedder import encode
 
 
 def run_dense_retrieval_demo() -> None:
-    """Simulates Person B indexing a code corpus and retrieving top matches for a query."""
+    """Simulates indexing a code corpus and retrieving top matches for a query."""
     print("=" * 70)
-    print("Person B Integration Demo: Ariadne Dense Retrieval")
+    print("Integration Demo: Ariadne Dense Retrieval")
     print("=" * 70)
 
-    # 1. Sample Candidate Code Corpus (Person B's search space)
+    # 1. Sample Candidate Code Corpus
     code_corpus = [
         "def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x < arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x >= arr[0]])",
         "def binary_search(arr, target): l, r = 0, len(arr)-1; while l <= r: m = (l+r)//2; if arr[m] == target: return m; elif arr[m] < target: l = m+1; else: r = m-1; return -1",
@@ -79,7 +79,7 @@ def run_dense_retrieval_demo() -> None:
         print(f"  Code Snippet: {best_code[:80]}...")
 
     print("\n" + "=" * 70)
-    print("Handoff to Person B verified successfully!")
+    print("Dense retrieval integration verified successfully!")
     print("=" * 70)
 
 

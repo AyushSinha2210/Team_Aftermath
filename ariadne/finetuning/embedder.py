@@ -1,7 +1,7 @@
 """Bi-encoder inference and embedding module.
 
 Provides a unified encode(texts: list[str]) -> np.ndarray entrypoint for
-retrieval pipelines (Person B/C/D), backed by an off-the-shelf or fine-tuned
+retrieval and reranking pipelines, backed by an off-the-shelf or fine-tuned
 CPU-optimized SentenceTransformer model configured via config.yaml.
 """
 
@@ -124,9 +124,8 @@ def encode(
 ) -> np.ndarray:
     """Encodes a list of text strings into normalized dense embedding vectors.
 
-    This is the primary embedder entrypoint contract consumed by Person B
-    (dense retriever), Person C (reranker candidate scorer), and Person D
-    (versioning incremental index).
+    This is the primary embedder entrypoint contract consumed by the dense
+    retriever, reranker candidate scorer, and versioning incremental index.
 
     Args:
         texts: List of query or code text strings to encode.

@@ -19,7 +19,7 @@ COPY . .
 # Ensure import resolution for ariadne modules
 ENV PYTHONPATH=/app
 
-# Expose port for demo application (Person D)
+# Expose port for demo application
 EXPOSE 8501
 
 # Launch Streamlit demo

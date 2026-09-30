@@ -11,7 +11,7 @@ global:
   log_level: "INFO"
   cache_dir: ".cache"
 
-# Base Bi-Encoder Model (Person A owns, everyone depends on)
+# Base Bi-Encoder Model
 # Small, CPU-friendly code/text representation model (<35M parameters)
 model:
   name: "sentence-transformers/all-MiniLM-L6-v2"
@@ -33,7 +33,7 @@ data:
   validation_ratio: 0.1
 
 # ------------------------------------------------------------------------------
-# PERSON A: Fine-tuning Configuration
+# Fine-tuning Configuration
 # Contrastive learning loop, loss definition, negative mining, and validation
 # ------------------------------------------------------------------------------
 finetuning:
@@ -57,7 +57,7 @@ finetuning:
     margin: 0.1
 
 # ------------------------------------------------------------------------------
-# PERSON B: Hybrid Retrieval Configuration (Owned by Person B)
+# Hybrid Retrieval Configuration
 # PrePostPipelineEncoder, BM25 sparse index, and Reciprocal Rank Fusion
 # ------------------------------------------------------------------------------
 retrieval:
@@ -71,7 +71,7 @@ retrieval:
   fusion_mode: "rrf"             # 'rrf' or 'convex'
 
 # ------------------------------------------------------------------------------
-# PERSON C: Reranking & Structural Analysis (Owned by Person C)
+# Reranking & Structural Analysis
 # Cross-encoder, confidence calibration, and AST/call-graph analysis
 # ------------------------------------------------------------------------------
 reranking:
@@ -86,7 +86,7 @@ reranking:
     call_graph_depth: 2
 
 # ------------------------------------------------------------------------------
-# PERSON D: Versioning, Evolutionary Retrieval & Demo (Owned by Person D)
+# Versioning, Evolutionary Retrieval & Demo
 # Content hashing, incremental indexing, dedup, and demo server
 # ------------------------------------------------------------------------------
 versioning:

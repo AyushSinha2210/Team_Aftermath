@@ -1,4 +1,4 @@
-"""Hybrid code search. Person C can call ``pipeline.retrieve(query, k=50)``."""
+"""Hybrid code search. Call ``pipeline.retrieve(query, k=50)``."""
 
 from __future__ import annotations
 

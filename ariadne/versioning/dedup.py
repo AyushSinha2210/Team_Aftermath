@@ -1,4 +1,4 @@
-"""Near-duplicate deduplication across versions via cosine similarity thresholds (owned by Person D).
+"""Near-duplicate deduplication across versions via cosine similarity thresholds.
 
 This module identifies and collapses near-duplicate code snippets across commits and versions
 using vectorized cosine similarity computation and connected-component clustering (Union-Find).

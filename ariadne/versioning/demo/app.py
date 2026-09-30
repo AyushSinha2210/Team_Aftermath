@@ -1,4 +1,4 @@
-"""Ariadne Search Demo Application (owned by Person D).
+"""Ariadne Search Demo Application.
 
 Demonstrates:
 1. Locked Config A Pipeline: Dense retrieval alone using fine-tuned bi-encoder (`best_biencoder`),
@@ -287,7 +287,7 @@ def load_raw_corpus(limit: int = 500) -> Dict[str, Dict[str, Any]]:
 def get_indexed_corpus() -> Tuple[Dict[str, Dict[str, Any]], IncrementalIndex]:
     """Loads corpus and initializes or builds the IncrementalIndex.
 
-    Uses Person D's IncrementalIndex to cache embeddings on disk, ensuring
+    Uses the IncrementalIndex to cache embeddings on disk, ensuring
     fast subsequent startups and integrating P1 infrastructure directly into the demo.
 
     Returns:
@@ -607,7 +607,7 @@ def render_simulation_tab() -> None:
     """Renders the Version Update Simulation tab (P1 Incremental Indexing Proof)."""
     st.subheader("⚡ Version Update Simulation (P1 Live Proof Point)")
     st.markdown(
-        "Demonstrates **Person D's content-hashed incremental re-indexing** in real time: "
+        "Demonstrates **content-hashed incremental re-indexing** in real time: "
         "when source code is modified in a repository, `IncrementalIndex.update()` detects "
         "content hash differences, re-embeds **only** the modified files, and reuses "
         "the existing cached embeddings for all unchanged files."
@@ -746,7 +746,7 @@ def render_cross_version_tab() -> None:
     """Renders the Cross-Version Search (Bonus) tab demonstrating deduplication and evolutionary retrieval."""
     st.subheader("🧬 Cross-Version Evolutionary Retrieval & Deduplication (Bonus)")
     st.markdown(
-        "Demonstrates **Person D's Bonus scope** (`dedup.py` and `evolutionary_retrieval.py`): "
+        "Demonstrates **cross-version deduplication and evolutionary retrieval** (`dedup.py` and `evolutionary_retrieval.py`): "
         "when searching code across multiple git commits, branches, or refactors, standard retrieval "
         "suffers from **Duplicate Inflation** — minor revisions of the same function crowd out other relevant results. "
         "Ariadne clusters near-duplicates with cosine similarity thresholding and queries **canonical representatives** "
@@ -932,7 +932,7 @@ def render_structural_tab() -> None:
     """Renders the Structural Code Analysis tab against real-world validator.js repo."""
     st.subheader("🌳 Structural Code Analysis (Call Graph & Tree-Sitter)")
     st.markdown(
-        "Demonstrates **Person C's Tree-Sitter AST parsing & Call Graph resolution** "
+        "Demonstrates **Tree-Sitter AST parsing & Call Graph resolution** "
         "against the real-world **`validator.js`** repository (`src/` directory), "
         "resolving cross-file static function calls and detecting naming ambiguities."
     )
@@ -1216,7 +1216,7 @@ def main() -> None:
         st.markdown(f"- **Index Cache:** `{index.cache_path.name}`")
         st.markdown("- **Dedup Threshold:** 0.90 / 0.95")
         st.markdown("---")
-        st.caption("Ariadne Code Search • Person D Demo")
+        st.caption("Ariadne Code Search Demo")
 
     tab_theme1, tab_search, tab_simulation, tab_cross_version, tab_structural = st.tabs([
         "🎙️ Theme 01: Agentic Code Intelligence",

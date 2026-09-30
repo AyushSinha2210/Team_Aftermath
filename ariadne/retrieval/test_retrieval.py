@@ -1,4 +1,4 @@
-"""Behavior checks for the Person B handoff interface."""
+"""Behavior checks for the hybrid retrieval interface."""
 
 from __future__ import annotations
 
