@@ -1,5 +1,7 @@
 # Team Aftermath — Ariadne: Agentic Code Intelligence
 
+Abhilash's React demo and browser API: see [frontend/README.md](frontend/README.md).
+
 > **Samsung PRISM GenAI Hackathon (3rd Edition)**  
 > **Theme 01:** Agentic Code Intelligence  
 > **Target Benchmark:** CoIR `apps` Code Retrieval & Search Benchmark  

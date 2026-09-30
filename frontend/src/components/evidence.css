@@ -1,0 +1,16 @@
+.benchmark-pair { display: flex; gap: clamp(65px, 12vw, 180px); margin-top: 50px; }
+.benchmark-value { display: block; font-size: clamp(64px, 8vw, 108px); line-height: 1.2; letter-spacing: -.07em; font-variant-numeric: tabular-nums; }
+.benchmark-pair > div:nth-child(2) .benchmark-value { color: var(--teal); }
+.metric-label { margin-top: 12px; font-size: 12px; color: var(--text-secondary); }
+.evidence-scope { font-size: 10px; margin-top: 14px; color: var(--text-secondary); }
+.evidence-details { margin-top: 22px; color: var(--text-secondary); font-size: 12px; line-height: 1.9; }
+.evidence-details summary { cursor: pointer; width: fit-content; }
+.evidence-details p { margin-top: 10px; overflow-wrap: anywhere; }
+.comparison { margin-top: 35px; width: 100%; border-collapse: collapse; font-size: 13px; }
+.comparison th, .comparison td { padding: 20px 16px; border-bottom: 1px solid var(--border); text-align: right; }
+.comparison th:first-child, .comparison td:first-child { text-align: left; padding-left: 0; }
+.comparison th { font-weight: 400; color: var(--text-secondary); }
+.comparison td:not(:first-child) { font-family: var(--font-mono); }
+.comparison .recommended td { color: var(--gold); }
+.table-scroll { overflow-x: auto; }
+@media(max-width: 700px) { .benchmark-pair { gap: 45px; } .benchmark-value { font-size: 58px; } .comparison { min-width: 580px; } }
