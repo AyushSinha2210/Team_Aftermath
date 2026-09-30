@@ -274,3 +274,62 @@ def resolve_call_path_bidirectional(
 		return None
 	return full_path
 
+
+def compute_call_graph_pagerank(
+	call_graph: Dict[str, List[str]],
+	damping: float = 0.85,
+	max_iter: int = 50,
+	tol: float = 1e-5,
+) -> Dict[str, float]:
+	"""Computes PageRank centrality scores for all nodes in the call graph.
+
+	Functions with high PageRank represent architectural nexus points called by many
+	subsystems (e.g. database gateways, authentication, utility parsers).
+
+	Args:
+		call_graph: Dict mapping caller -> list of callees.
+		damping: Probability of following an edge (default 0.85).
+		max_iter: Maximum power iterations.
+		tol: L1 convergence tolerance.
+
+	Returns:
+		Dict mapping qualified node name -> centrality probability in [0, 1].
+	"""
+	nodes = list(call_graph.keys())
+	all_nodes_set = set(nodes)
+	for callees in call_graph.values():
+		all_nodes_set.update(callees)
+	all_nodes = sorted(list(all_nodes_set))
+	n = len(all_nodes)
+	if n == 0:
+		return {}
+
+	# Incoming edge map: v -> list of u where u calls v
+	incoming: Dict[str, List[str]] = {node: [] for node in all_nodes}
+	out_degrees: Dict[str, int] = {node: len(call_graph.get(node, [])) for node in all_nodes}
+
+	for u, callees in call_graph.items():
+		for v in callees:
+			incoming.setdefault(v, []).append(u)
+
+	scores = {node: 1.0 / n for node in all_nodes}
+
+	for _ in range(max_iter):
+		next_scores = {}
+		# Dangling sum from nodes with 0 outgoing calls
+		dangling_sum = sum(scores[node] for node in all_nodes if out_degrees[node] == 0)
+		base_score = (1.0 - damping) / n + (damping * dangling_sum) / n
+
+		for node in all_nodes:
+			inflow = sum(scores[parent] / out_degrees[parent] for parent in incoming[node] if out_degrees[parent] > 0)
+			next_scores[node] = base_score + damping * inflow
+
+		# Check convergence
+		diff = sum(abs(next_scores[node] - scores[node]) for node in all_nodes)
+		scores = next_scores
+		if diff < tol:
+			break
+
+	return scores
+
+
