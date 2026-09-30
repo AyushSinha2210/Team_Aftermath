@@ -1,0 +1,75 @@
+{
+  "title": "Ariadne Day 4-5 Reranking Checkpoint Evaluation",
+  "timestamp": "20260930_120930",
+  "evaluation_split": "valid (data/raw/valid)",
+  "num_queries": 50,
+  "num_candidates": 500,
+  "models": {
+    "config_a": {
+      "name": "Config A (dense retrieval only)",
+      "metrics": {
+        "ndcg@10": 0.7391292012176285,
+        "mrr@10": 0.7065,
+        "recall@1": 0.64,
+        "recall@5": 0.82,
+        "recall@10": 0.84
+      }
+    },
+    "config_c": {
+      "name": "Config C (dense + cross-encoder reranking + calibration)",
+      "metrics": {
+        "ndcg@10": 0.6118629550184764,
+        "mrr@10": 0.5531031746031746,
+        "recall@1": 0.44,
+        "recall@5": 0.68,
+        "recall@10": 0.8
+      },
+      "calibration": {
+        "abstention_count": 27,
+        "abstention_rate": 0.54
+      },
+      "pool_diagnostic": {
+        "queries_with_relevant_in_rerank_pool": 42,
+        "reranked_top10_fraction": 0.9523809523809523,
+        "original_top10_fraction": 1.0,
+        "original_best_rank_mean": 1.619047619047619
+      }
+    },
+    "config_b": {
+      "name": "Config B (dense + BM25 fusion)",
+      "metrics": {
+        "ndcg@10": 0.7213921450729379,
+        "mrr@10": 0.6825,
+        "recall@1": 0.6,
+        "recall@5": 0.82,
+        "recall@10": 0.84
+      }
+    },
+    "config_d": {
+      "name": "Config D (dense + BM25 fusion + cross-encoder reranking + calibration)",
+      "metrics": {
+        "ndcg@10": 0.5956431523889395,
+        "mrr@10": 0.5314126984126984,
+        "recall@1": 0.4,
+        "recall@5": 0.68,
+        "recall@10": 0.8
+      },
+      "calibration": {
+        "abstention_count": 26,
+        "abstention_rate": 0.52
+      }
+    },
+    "config_e": {
+      "name": "Config E (Cascade Router: Dense + Conditional Rerank)",
+      "metrics": {
+        "ndcg@10": 0.6998439394795326,
+        "mrr@10": 0.6688809523809524,
+        "recall@1": 0.62,
+        "recall@5": 0.74,
+        "recall@10": 0.8
+      },
+      "fast_path_rate": 0.58,
+      "escalated_rate": 0.42
+    }
+  }
+}
