@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import yaml
 
 
@@ -109,10 +110,44 @@ def _truncate_text(model: Any, query: str, text: str) -> str:
 	return decoded or text[:1]
 
 
+def predict_batches(
+	model: Any,
+	pairs: List[Tuple[str, str]],
+	batch_size: int = 16,
+) -> np.ndarray:
+	"""Predicts scores in fixed batches to maintain CPU cache efficiency and prevent memory spikes.
+
+	Args:
+		model: SentenceTransformers CrossEncoder or callable scoring function.
+		pairs: List of (query, document) string pairs.
+		batch_size: Number of pairs per inference chunk.
+
+	Returns:
+		1D array of float scores.
+	"""
+	if not pairs:
+		return np.array([], dtype=float)
+
+	if hasattr(model, "predict"):
+		return np.asarray(
+			model.predict(pairs, batch_size=batch_size, show_progress_bar=False),
+			dtype=float,
+		)
+
+	# Callable fallback (e.g. mock models in test harness)
+	scores: List[float] = []
+	for i in range(0, len(pairs), batch_size):
+		chunk = pairs[i : i + batch_size]
+		res = model(chunk)
+		scores.extend(res)
+	return np.asarray(scores, dtype=float)
+
+
 def rerank(
 	query: str,
 	candidates: List[Dict[str, Any]],
 	score_cache: Optional[Dict[Tuple[str, str], float]] = None,
+	batch_size: int = 16,
 ) -> List[Dict[str, Any]]:
 	"""Reranks the configured top-k candidates with a CPU cross-encoder.
 
@@ -120,6 +155,7 @@ def rerank(
 		query: User query to score against candidate text.
 		candidates: Candidate dictionaries containing ``id``, ``text``, and ``fusion_score``.
 		score_cache: Optional dict mapping (query, doc_id) -> rerank_score to avoid recomputing.
+		batch_size: Batch size for cross-encoder inference chunks.
 
 	Returns:
 		Reranked top-k candidates followed by the untouched remainder.
@@ -144,7 +180,7 @@ def rerank(
 	if unscored_candidates:
 		model = load_cross_encoder()
 		pairs = [(query, _truncate_text(model, query, c["text"])) for c in unscored_candidates]
-		scores = model.predict(pairs)
+		scores = predict_batches(model, pairs, batch_size=batch_size)
 		for candidate, score in zip(unscored_candidates, scores):
 			s = float(score)
 			candidate["rerank_score"] = s
