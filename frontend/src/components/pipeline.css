@@ -1,0 +1,8 @@
+.pipeline-viewport { margin-top: 45px; overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); padding: 30px 18px; }
+.pipeline-diagram { min-width: 750px; position: relative; }
+.pipeline-svg { width: 100%; display: block; color: var(--border); }
+.pipeline-svg rect { fill: var(--surface); stroke: var(--border); }
+.pipeline-svg text { fill: var(--text-secondary); font: 12px var(--font-body); }
+.pipeline-trace { color: var(--gold); }
+.trace-reveal { position: absolute; inset: 0; transform-origin: left center; pointer-events: none; }
+.pipeline-context { max-width: 650px; margin-top: 12px; font-size: 12px; }
