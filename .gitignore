@@ -21,3 +21,9 @@ ariadne/finetuning/checkpoints/*
 ariadne/finetuning/checkpoints/*.zip
 ariadne/eval/results/*
 !ariadne/eval/results/.gitkeep
+
+# User pasted local working files
+*.pptx
+ariadne/CollegeName_TeamName_Submission.pptx
+ariadne/ariadne-frontend-antigravity-spec.md
+ariadne/theme1_guidelines.pdf
