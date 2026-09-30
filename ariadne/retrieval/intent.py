@@ -23,23 +23,26 @@ class QueryIntentInfo:
 	detected_error_pattern: Optional[str] = None
 
 
-_ERROR_KEYWORDS = [
-	"error",
-	"exception",
-	"failed",
-	"failure",
-	"traceback",
-	"stack trace",
-	"nullpointer",
-	"typeerror",
-	"valueerror",
-	"keyerror",
-	"syntaxerror",
-	"assertionerror",
-	"panicked at",
-	"segfault",
-	"exit code",
-]
+_ERROR_KEYWORDS = sorted(
+	[
+		"assertionerror",
+		"nullpointer",
+		"syntaxerror",
+		"typeerror",
+		"valueerror",
+		"keyerror",
+		"exception",
+		"traceback",
+		"stack trace",
+		"panicked at",
+		"segfault",
+		"exit code",
+		"failure",
+		"failed",
+		"error",
+	],
+	key=lambda k: -len(k),
+)
 
 _CONCEPT_MARKERS = [
 	"how to",
