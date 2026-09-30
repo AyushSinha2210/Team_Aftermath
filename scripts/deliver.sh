@@ -14,12 +14,16 @@ can_push() {
 flush() {
   can_push || { echo 'Push deferred: GitHub must authenticate as abhi-s99.'; return 0; }
   [[ -f .delivery/pending ]] || return 0
-  while read -r sha; do
-    [[ -n "$sha" ]] || continue
+  # Use the same authenticated account for Git transport as for the API check.
+  git config --local credential.https://github.com.helper ''
+  git config --local --add credential.https://github.com.helper '!gh auth git-credential'
+  while [[ -s .delivery/pending ]]; do
+    read -r sha < .delivery/pending
     git push origin "$sha:refs/heads/Abhilash"
     echo "$sha" >> .delivery/pushed
-  done < .delivery/pending
-  : > .delivery/pending
+    tail -n +2 .delivery/pending > .delivery/pending.next
+    mv .delivery/pending.next .delivery/pending
+  done
 }
 verify
 if [[ "${1:-}" == --flush ]]; then
