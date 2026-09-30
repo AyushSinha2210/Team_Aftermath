@@ -19,7 +19,7 @@
 .result-header h3 { font: 14px var(--font-mono); font-weight: 500; color: var(--text-primary); }
 .result-rank { font-size: 11px; color: var(--text-secondary); }
 .result-code { overflow: auto; max-height: 330px; padding: 20px 24px; margin: 0 0 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font: 12px/1.85 var(--font-mono); color: var(--text-primary); tab-size: 2; }
-.result-code span { display: block; }
+.result-code span { display: inline; }
 .code-comment { color: var(--text-secondary); }
 .result-location { color: var(--text-secondary); font-size: 10px; overflow-wrap: anywhere; }
 .result-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 10px; }

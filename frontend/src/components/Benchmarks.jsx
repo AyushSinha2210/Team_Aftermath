@@ -23,7 +23,7 @@ export function CountUp({ value }) {
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
   }, [visible, reduced, value]);
-  return <span ref={ref} className="benchmark-value mono" aria-label={value.toFixed(3)}><span aria-hidden="true">{(reduced ? value : current).toFixed(3)}</span></span>;
+  return <span ref={ref} className="benchmark-value mono"><span className="sr-only">{value.toFixed(3)}</span><span aria-hidden="true">{(reduced ? value : current).toFixed(3)}</span></span>;
 }
 
 export default function Benchmarks() {
