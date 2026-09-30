@@ -15,11 +15,17 @@ def default_encode(texts: list[str]) -> np.ndarray:
 
 
 class DenseRetriever:
-    def __init__(self, encoder: Callable[[list[str]], np.ndarray] = default_encode):
+    def __init__(
+        self,
+        encoder: Callable[[list[str]], np.ndarray] = default_encode,
+        query_cache_size: int = 512,
+    ):
         self.encoder = encoder
         self.ids: list[str] = []
         self.texts: dict[str, str] = {}
         self.embeddings: np.ndarray | None = None
+        self.query_cache_size = query_cache_size
+        self.query_cache: dict[str, np.ndarray] = {}
 
     def index(self, corpus: Mapping[str, str]) -> None:
         self.ids = list(corpus)
@@ -36,10 +42,21 @@ class DenseRetriever:
     def retrieve(self, query: str, k: int = 50) -> list[tuple[str, float]]:
         if k <= 0 or self.embeddings is None:
             return []
-        vector = np.asarray(self.encoder([query]), dtype=np.float32)
-        if vector.shape != (1, self.embeddings.shape[1]):
-            raise ValueError("Query embedding dimension differs from corpus embeddings")
-        return self.retrieve_vector(vector[0], k)
+
+        if query in self.query_cache:
+            vector_1d = self.query_cache[query]
+        else:
+            vector = np.asarray(self.encoder([query]), dtype=np.float32)
+            if vector.shape != (1, self.embeddings.shape[1]):
+                raise ValueError("Query embedding dimension differs from corpus embeddings")
+            vector_1d = vector[0]
+            if len(self.query_cache) >= self.query_cache_size:
+                # Evict oldest entry
+                oldest_key = next(iter(self.query_cache))
+                del self.query_cache[oldest_key]
+            self.query_cache[query] = vector_1d
+
+        return self.retrieve_vector(vector_1d, k)
 
     def retrieve_vector(self, vector: np.ndarray, k: int = 50) -> list[tuple[str, float]]:
         if k <= 0 or self.embeddings is None:
