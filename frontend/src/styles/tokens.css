@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #14161F;
+  --surface: #1C1F2B;
+  --surface-raised: #23273540;
+  --border: #2A2D3A;
+  --gold: #D4A843;
+  --gold-dim: #D4A84333;
+  --teal: #4FD1C5;
+  --teal-dim: #4FD1C533;
+  --text-primary: #EDEBE4;
+  --text-secondary: #9A9CAA;
+  --text-muted: #6B6D7A;
+  --success: #6FCF97;
+  --error: #E27D60;
+  --focus-ring: #D4A843;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@theme inline {
+  --color-ink: var(--bg);
+  --color-surface: var(--surface);
+  --color-gold: var(--gold);
+  --color-teal: var(--teal);
+  --color-border: var(--border);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --font-sans: var(--font-body);
+  --font-serif: var(--font-display);
+  --font-mono: 'JetBrains Mono', monospace;
+}
